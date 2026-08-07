@@ -1,0 +1,117 @@
+@import "tailwindcss";
+
+@theme {
+  /* ── GHS / MedRoster Design Tokens ────────────────────── */
+  /* Primary palette — Ghana Health Service institutional teal */
+  --color-ghs-teal: #006B6B;
+  --color-ghs-teal-hover: #005454;
+  --color-ghs-teal-light: #E6F4F4;
+  --color-ghs-gold: #C8860A;
+  --color-ghs-gold-light: #FDF3DC;
+
+  /* Neutral surface */
+  --color-ghs-surface: #F4F7F9;
+  --color-ghs-deep: #0F1F2E;
+  --color-ghs-muted: #556370;
+
+  /* ── Legacy Synclly tokens (kept for backward compatibility) */
+  --color-synclly-surface: #F4F7F9;
+  --color-synclly-coral: #006B6B;
+  --color-synclly-coral-hover: #005454;
+  --color-synclly-deep: #0F1F2E;
+  --color-synclly-muted: #556370;
+
+  /* Accent */
+  --color-accent: var(--color-ghs-teal);
+  --color-accent-hover: var(--color-ghs-teal-hover);
+  --color-accent-light: var(--color-ghs-teal-light);
+
+  /* Typography */
+  --font-jakarta: "Plus Jakarta Sans", "Inter", sans-serif;
+
+  /* Radii */
+  --radius-pill: 12px;
+  --radius-card: 24px;
+  --radius-modal: 32px;
+
+  /* Shadows */
+  --shadow-synclly: 0 20px 25px -5px rgb(0 0 0 / 0.05), 0 8px 10px -6px rgb(0 0 0 / 0.05);
+  --shadow-synclly-lg: 0 25px 50px -12px rgb(0 0 0 / 0.08);
+}
+
+:root {
+  --foreground-rgb: 15, 31, 46;   /* ghs-deep */
+  --background-rgb: 244, 247, 249; /* ghs-surface */
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: rgb(var(--background-rgb));
+  font-family: var(--font-jakarta);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Global Typography Consistency */
+h1 {
+  @apply text-4xl font-extrabold tracking-tight text-synclly-deep leading-tight;
+}
+
+h2 {
+  @apply text-2xl font-bold tracking-tight text-synclly-deep;
+}
+
+h3 {
+  @apply text-lg font-bold tracking-tight text-synclly-deep;
+}
+
+h4 {
+  @apply text-sm font-semibold tracking-wide text-synclly-muted uppercase;
+}
+
+/* Shift Blocks */
+.shift-block {
+  @apply flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-bold tracking-tight transition-all border;
+}
+
+.shift-block.morning {
+  @apply bg-[#FFF1E6] text-[#C86A00] border-[#FFEDD5];
+}
+
+.shift-block.afternoon {
+  @apply bg-[#E0F2FE] text-[#0369A1] border-[#BAE6FD];
+}
+
+.shift-block.night {
+  @apply bg-[#EDE9FE] text-[#6D28D9] border-[#DDD6FE];
+}
+
+.shift-block.sod {
+  @apply bg-ghs-teal-light text-ghs-teal border-[#B3DCDC];
+}
+
+/* Common Layout Elements */
+.glass-panel {
+  @apply bg-white/80 backdrop-blur-xl border border-white/40 shadow-synclly;
+}
+
+.sidebar-item {
+  @apply flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all;
+}
+
+.sidebar-item-active {
+  @apply bg-white text-ghs-teal shadow-sm border border-slate-100;
+}
+
+/* Standard Buttons */
+.btn {
+  @apply inline-flex items-center justify-center gap-2 px-6 py-3 rounded-2xl font-bold text-sm transition-all active:scale-95;
+}
+
+.btn-primary {
+  @apply bg-ghs-teal text-white hover:bg-ghs-teal-hover shadow-lg shadow-ghs-teal/20;
+}
+
+.btn-secondary {
+  @apply bg-white text-synclly-muted border border-slate-200 hover:bg-slate-50 shadow-sm;
+}
