@@ -6,7 +6,6 @@ import {
     STAFF_CATEGORIES,
     RANKS_BY_CATEGORY,
     QUALIFICATIONS,
-    LICENSE_TYPES,
     EMPLOYMENT_STATUSES,
     GENDERS,
     MIN_ANNUAL_LEAVE_DAYS,
@@ -24,23 +23,15 @@ function emptyStaff(departmentId) {
     return {
         firstName: '',
         lastName: '',
-        employeeId: '',
-        ghanaCardNumber: '',
-        dateOfBirth: '',
         gender: '',
         phone: '',
         email: '',
-        address: '',
         category: 'Nurse',
         rank: '',
         qualification: '',
         specialization: '',
-        licenseType: '',
-        licenseNumber: '',
-        licenseExpiry: '',
         dateHired: '',
         employmentStatus: 'Active',
-        emergencyContact: { name: '', phone: '', relation: '' },
         annualLeaveBalance: MIN_ANNUAL_LEAVE_DAYS,
         departmentId: departmentId || '',
         wardId: '',
@@ -74,9 +65,6 @@ export default function StaffFormModal({ hospitalId, departments, wards = [], st
             return {
                 ...emptyStaff(staff.departmentId),
                 ...staff,
-                emergencyContact: { name: '', phone: '', relation: '', ...(staff.emergencyContact || {}) },
-                dateOfBirth: toDateInput(staff.dateOfBirth),
-                licenseExpiry: toDateInput(staff.licenseExpiry),
                 dateHired: toDateInput(staff.dateHired),
             };
         }
@@ -130,18 +118,7 @@ export default function StaffFormModal({ hospitalId, departments, wards = [], st
         [wards, form.departmentId]
     );
 
-    // Auto-suggest license type from category
-    useEffect(() => {
-        if (isEdit) return;
-        const match = LICENSE_TYPES.find((l) => l.appliesTo.includes(form.category));
-        if (match && !form.licenseType) {
-            setForm((f) => ({ ...f, licenseType: match.code }));
-        }
-    }, [form.category, form.licenseType, isEdit]);
-
     const update = (key, value) => setForm((f) => ({ ...f, [key]: value }));
-    const updateContact = (key, value) =>
-        setForm((f) => ({ ...f, emergencyContact: { ...f.emergencyContact, [key]: value } }));
     const toggleArrayValue = (key, value) => {
         setForm((f) => {
             const current = Array.isArray(f[key]) ? f[key] : [];
@@ -176,11 +153,23 @@ export default function StaffFormModal({ hospitalId, departments, wards = [], st
             const method = isEdit ? 'PATCH' : 'POST';
 
             const payload = {
-                ...form,
-                annualLeaveBalance: Number(form.annualLeaveBalance) || 0,
-                dateOfBirth: form.dateOfBirth || null,
-                licenseExpiry: form.licenseExpiry || null,
+                firstName: form.firstName,
+                lastName: form.lastName,
+                gender: form.gender,
+                phone: form.phone,
+                email: form.email,
+                category: form.category,
+                rank: form.rank,
+                qualification: form.qualification,
+                specialization: form.specialization,
                 dateHired: form.dateHired || null,
+                employmentStatus: form.employmentStatus,
+                annualLeaveBalance: Number(form.annualLeaveBalance) || 0,
+                departmentId: form.departmentId,
+                wardId: form.wardId,
+                wardRole: form.wardRole,
+                isRotation: Boolean(form.isRotation),
+                workRestriction: form.workRestriction,
                 noNightShift: Boolean(form.noNightShift),
                 maternityNoNight: Boolean(form.maternityNoNight),
                 preferredOffDays: form.preferredOffDays || [],
@@ -204,7 +193,7 @@ export default function StaffFormModal({ hospitalId, departments, wards = [], st
                         {isEdit ? 'Edit Staff Member' : 'Add Staff Member'}
                     </h2>
                     <p className="text-synclly-muted font-medium text-sm mt-1">
-                        Full profile per Ghana Health Service standards.
+                        Full profile for rostering — name, rank, ward, and shift preferences.
                     </p>
 
                     <div className="flex gap-2 mt-6 overflow-x-auto -mx-1 px-1">
@@ -235,12 +224,6 @@ export default function StaffFormModal({ hospitalId, departments, wards = [], st
                                 <Field label="Last Name" required>
                                     <Input value={form.lastName} onChange={(v) => update('lastName', v)} placeholder="Mensah" />
                                 </Field>
-                                <Field label="Ghana Card Number">
-                                    <Input value={form.ghanaCardNumber} onChange={(v) => update('ghanaCardNumber', v)} placeholder="GHA-XXXXXXXXX-X" />
-                                </Field>
-                                <Field label="Date of Birth">
-                                    <Input type="date" value={form.dateOfBirth} onChange={(v) => update('dateOfBirth', v)} />
-                                </Field>
                                 <Field label="Gender">
                                     <Select value={form.gender} onChange={(v) => update('gender', v)} options={['', ...GENDERS]} placeholder="Select" />
                                 </Field>
@@ -250,11 +233,35 @@ export default function StaffFormModal({ hospitalId, departments, wards = [], st
                                 <Field label="Email" full>
                                     <Input type="email" value={form.email} onChange={(v) => update('email', v)} placeholder="staff@example.com" />
                                 </Field>
-                                <Field label="Address" full>
-                                    <Input value={form.address} onChange={(v) => update('address', v)} placeholder="House no., street, city" />
+                                <Field label="Category">
+                                    <Select
+                                        value={form.category}
+                                        onChange={(v) => {
+                                            update('category', v);
+                                            update('rank', '');
+                                        }}
+                                        options={STAFF_CATEGORIES}
+                                    />
                                 </Field>
-                                <Field label="Employee ID">
-                                    <Input value={form.employeeId} onChange={(v) => update('employeeId', v)} placeholder="e.g. KBTH-2421" />
+                                <Field label="Rank / Grade">
+                                    <Select value={form.rank} onChange={(v) => update('rank', v)} options={['', ...ranks]} placeholder="Select rank" />
+                                </Field>
+                                <Field label="Qualification">
+                                    <Select value={form.qualification} onChange={(v) => update('qualification', v)} options={['', ...QUALIFICATIONS]} placeholder="Select" />
+                                </Field>
+                                <Field label="Specialization">
+                                    <Input value={form.specialization} onChange={(v) => update('specialization', v)} placeholder="e.g. Critical Care" />
+                                </Field>
+                                <Field label="Employment Status">
+                                    <Select value={form.employmentStatus} onChange={(v) => update('employmentStatus', v)} options={EMPLOYMENT_STATUSES} />
+                                </Field>
+                                <Field label={`Annual leave (days · min ${MIN_ANNUAL_LEAVE_DAYS})`}>
+                                    <Input
+                                        type="number"
+                                        min="0"
+                                        value={form.annualLeaveBalance}
+                                        onChange={(v) => update('annualLeaveBalance', v)}
+                                    />
                                 </Field>
                                 <Field label="Department" required>
                                     <Select
@@ -328,109 +335,6 @@ export default function StaffFormModal({ hospitalId, departments, wards = [], st
                                         </div>
                                     </div>
                                 </div>
-                            </div>
-                        )}
-
-                        {active === 'professional' && (
-                            <div className="grid grid-cols-2 gap-4">
-                                <Field label="Employee ID">
-                                    <Input value={form.employeeId} onChange={(v) => update('employeeId', v)} placeholder="e.g. KBTH-2421" />
-                                </Field>
-                                <Field label="Department" required>
-                                    <Select
-                                        value={form.departmentId}
-                                        onChange={(v) => update('departmentId', v)}
-                                        options={[
-                                            { value: '', label: 'Select department' },
-                                            ...departments.map((d) => ({ value: d._id, label: d.name })),
-                                        ]}
-                                    />
-                                </Field>
-                                <Field label="Category">
-                                    <Select
-                                        value={form.category}
-                                        onChange={(v) => {
-                                            update('category', v);
-                                            update('rank', '');
-                                        }}
-                                        options={STAFF_CATEGORIES}
-                                    />
-                                </Field>
-                                <Field label="Rank / Grade">
-                                    <Select value={form.rank} onChange={(v) => update('rank', v)} options={['', ...ranks]} placeholder="Select rank" />
-                                </Field>
-                                <Field label="Qualification">
-                                    <Select value={form.qualification} onChange={(v) => update('qualification', v)} options={['', ...QUALIFICATIONS]} placeholder="Select" />
-                                </Field>
-                                <Field label="Specialization">
-                                    <Input value={form.specialization} onChange={(v) => update('specialization', v)} placeholder="e.g. Critical Care" />
-                                </Field>
-                            </div>
-                        )}
-
-                        {active === 'licensing' && (
-                            <div className="grid grid-cols-2 gap-4">
-                                <Field label="License Type">
-                                    <Select
-                                        value={form.licenseType}
-                                        onChange={(v) => update('licenseType', v)}
-                                        options={[
-                                            { value: '', label: 'None' },
-                                            ...LICENSE_TYPES.map((l) => ({ value: l.code, label: `${l.code} \u2014 ${l.name}` })),
-                                        ]}
-                                    />
-                                </Field>
-                                <Field label="License Number">
-                                    <Input value={form.licenseNumber} onChange={(v) => update('licenseNumber', v)} placeholder="e.g. PIN-12345" />
-                                </Field>
-                                <Field label="License Expiry">
-                                    <Input type="date" value={form.licenseExpiry} onChange={(v) => update('licenseExpiry', v)} />
-                                </Field>
-                                {form.licenseType && (
-                                    <Field label="Issuing Body" full>
-                                        <div className="h-12 bg-synclly-surface border border-slate-100 rounded-xl px-4 text-sm font-bold text-synclly-muted flex items-center">
-                                            {LICENSE_TYPES.find((l) => l.code === form.licenseType)?.body || ''}
-                                        </div>
-                                    </Field>
-                                )}
-                            </div>
-                        )}
-
-                        {active === 'employment' && (
-                            <div className="grid grid-cols-2 gap-4">
-                                <Field label="Date Hired">
-                                    <Input type="date" value={form.dateHired} onChange={(v) => update('dateHired', v)} />
-                                </Field>
-                                <Field label="Employment Status">
-                                    <Select value={form.employmentStatus} onChange={(v) => update('employmentStatus', v)} options={EMPLOYMENT_STATUSES} />
-                                </Field>
-                                <Field label={`Annual leave balance (days · min ${MIN_ANNUAL_LEAVE_DAYS} per Labour Act)`} full>
-                                    <Input
-                                        type="number"
-                                        min="0"
-                                        value={form.annualLeaveBalance}
-                                        onChange={(v) => update('annualLeaveBalance', v)}
-                                    />
-                                </Field>
-                                {isEdit && (
-                                    <p className="col-span-2 text-[11px] font-medium text-synclly-muted">
-                                        Actual leave dates are recorded under the <span className="font-bold text-synclly-deep">Leave</span> tab.
-                                    </p>
-                                )}
-                            </div>
-                        )}
-
-                        {active === 'emergency' && (
-                            <div className="grid grid-cols-2 gap-4">
-                                <Field label="Contact Name" full>
-                                    <Input value={form.emergencyContact.name} onChange={(v) => updateContact('name', v)} />
-                                </Field>
-                                <Field label="Contact Phone">
-                                    <Input value={form.emergencyContact.phone} onChange={(v) => updateContact('phone', v)} placeholder="+233 ..." />
-                                </Field>
-                                <Field label="Relation">
-                                    <Input value={form.emergencyContact.relation} onChange={(v) => updateContact('relation', v)} placeholder="e.g. Spouse" />
-                                </Field>
                             </div>
                         )}
 

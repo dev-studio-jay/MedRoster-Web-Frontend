@@ -3,19 +3,9 @@
 import { useState } from 'react';
 import { apiFetch } from '../../lib/api';
 import DepartmentTemplatePicker from '../modals/DepartmentTemplatePicker';
+import { getDisplayWardsForDepartment } from '../../lib/org-units';
 
-function normalizeName(value) {
-    return String(value || '').trim().toLowerCase();
-}
-
-function getDisplayWards(department, wards) {
-    const departmentWards = wards.filter((w) => String(w.departmentId) === String(department._id));
-    const realWards = departmentWards.filter((ward) => normalizeName(ward.name) !== normalizeName(department.name));
-
-    return realWards.length > 0 ? realWards : departmentWards;
-}
-
-export default function DepartmentsTab({ hospital, onChange, onWardOpen }) {
+export default function DepartmentsTab({ hospital, onChange, onWardOpen, canWrite = true }) {
     const [showAdd, setShowAdd] = useState(false);
     const [editingId, setEditingId] = useState(null);
     const [editName, setEditName] = useState('');
@@ -104,6 +94,7 @@ export default function DepartmentsTab({ hospital, onChange, onWardOpen }) {
                     onSkip={() => setShowAdd(false)}
                     busy={busy}
                     error={error}
+                    existingNames={departments.map((d) => d.name)}
                 />
             </div>
         );
@@ -116,6 +107,7 @@ export default function DepartmentsTab({ hospital, onChange, onWardOpen }) {
                     <h2 className="text-2xl font-extrabold tracking-tight">{wards.length} {wards.length === 1 ? 'Ward / Unit' : 'Wards / Units'}</h2>
                     <p className="text-synclly-muted font-medium text-sm mt-1">Departments group the work. Wards and units are where the roster happens.</p>
                 </div>
+                {canWrite && (
                 <button
                     onClick={() => setShowAdd(true)}
                     className="btn btn-primary text-xs py-2"
@@ -123,12 +115,13 @@ export default function DepartmentsTab({ hospital, onChange, onWardOpen }) {
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
                     Add Department Group
                 </button>
+                )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                 {departments.map((d) => {
                     const isEditing = editingId === d._id;
-                    const departmentWards = getDisplayWards(d, wards);
+                    const departmentWards = getDisplayWardsForDepartment(d, wards);
                     return (
                         <div key={d._id} className="group bg-white rounded-[24px] border border-slate-50 p-6 transition-all hover:shadow-synclly hover:-translate-y-0.5">
                             {isEditing ? (
@@ -154,6 +147,7 @@ export default function DepartmentsTab({ hospital, onChange, onWardOpen }) {
                                 <>
                                     <div className="flex items-start justify-between gap-3 mb-3">
                                         <h3 className="text-lg font-extrabold text-synclly-deep leading-tight">{d.name}</h3>
+                                        {canWrite && (
                                         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                             <button
                                                 onClick={() => startEdit(d)}
@@ -176,6 +170,7 @@ export default function DepartmentsTab({ hospital, onChange, onWardOpen }) {
                                                 </svg>
                                             </button>
                                         </div>
+                                        )}
                                     </div>
                                     <p className="text-xs text-synclly-muted font-medium leading-relaxed min-h-[2.5em]">
                                         {d.description || 'No description'}
@@ -203,6 +198,7 @@ export default function DepartmentsTab({ hospital, onChange, onWardOpen }) {
                                                 </span>
                                             )}
                                         </div>
+                                        {canWrite && (
                                         <div className="flex gap-2">
                                             <input
                                                 value={wardDrafts[d._id] || ''}
@@ -217,6 +213,7 @@ export default function DepartmentsTab({ hospital, onChange, onWardOpen }) {
                                                 Add
                                             </button>
                                         </div>
+                                        )}
                                     </div>
                                 </>
                             )}
@@ -228,10 +225,16 @@ export default function DepartmentsTab({ hospital, onChange, onWardOpen }) {
             {departments.length === 0 && (
                 <div className="flex flex-col items-center justify-center py-32 text-center bg-white rounded-[40px] border border-slate-100 shadow-synclly">
                     <h3 className="text-xl font-extrabold text-synclly-deep">No departments yet</h3>
-                    <p className="text-synclly-muted text-sm font-medium max-w-xs mt-2 mb-6">Add department groups first, then add the wards or units that staff actually work in.</p>
+                    <p className="text-synclly-muted text-sm font-medium max-w-xs mt-2 mb-6">
+                        {canWrite
+                            ? 'Add department groups first, then add the wards or units that staff actually work in.'
+                            : 'An admin has not set up departments yet.'}
+                    </p>
+                    {canWrite && (
                     <button onClick={() => setShowAdd(true)} className="btn btn-primary text-xs py-2">
                         Add Departments
                     </button>
+                    )}
                 </div>
             )}
         </div>

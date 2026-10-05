@@ -2,10 +2,9 @@ import { auth } from './firebase';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
-export async function apiFetch(path, options = {}) {
+export async function apiFetch(path, options = {}, { retryOnAuth = true } = {}) {
     let token = null;
     try {
-        // Force-refresh ensures we always have a valid, non-expired token
         token = await auth.currentUser?.getIdToken(false);
     } catch {
         // Not signed in — request will be sent without auth header
@@ -19,6 +18,28 @@ export async function apiFetch(path, options = {}) {
             ...options.headers,
         },
     });
+
+    if (res.status === 401 && retryOnAuth && auth.currentUser) {
+        try {
+            token = await auth.currentUser.getIdToken(true);
+            const retry = await fetch(`${BASE_URL}${path}`, {
+                ...options,
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                    ...options.headers,
+                },
+            });
+            if (retry.ok) return retry.json();
+            const body = await retry.json().catch(() => ({}));
+            const err = new Error(body.error || retry.statusText || 'Request failed');
+            err.status = retry.status;
+            err.data = body;
+            throw err;
+        } catch (err) {
+            if (err.status) throw err;
+        }
+    }
 
     if (!res.ok) {
         const body = await res.json().catch(() => ({}));

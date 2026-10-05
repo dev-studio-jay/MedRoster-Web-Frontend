@@ -3,14 +3,21 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { signInWithPopup } from 'firebase/auth';
 import { HOSPITAL_TYPES, GHANA_REGIONS } from '../../../lib/ghana-data';
+import { auth, googleProvider, mapAuthError } from '../../../lib/firebase';
+import GoogleSignInButton, { AuthDivider } from '../../../components/auth/GoogleSignInButton';
+import AccountTypePicker from '../../../components/auth/AccountTypePicker';
+import PhoneAuthPanel from '../../../components/auth/PhoneAuthPanel';
+import { takeGuestDataForMigration } from '../../../lib/guest-storage';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
 export default function RegisterPage() {
     const router = useRouter();
 
-    const [step, setStep] = useState(1);
+    const [accountType, setAccountType] = useState('enterprise');
+    const [step, setStep] = useState(0); // 0 type, 1 hospital (enterprise), 2 credentials
     const [hospitalName, setHospitalName] = useState('');
     const [hospitalType, setHospitalType] = useState('District Hospital');
     const [hospitalRegion, setHospitalRegion] = useState('Greater Accra');
@@ -22,41 +29,147 @@ export default function RegisterPage() {
     const [confirmPassword, setConfirmPassword] = useState('');
 
     const [loading, setLoading] = useState(false);
+    const [googleLoading, setGoogleLoading] = useState(false);
+    const [showPhone, setShowPhone] = useState(false);
     const [error, setError] = useState('');
 
-    const handleStep1 = (e) => {
-        e.preventDefault();
-        if (!hospitalName.trim()) return;
-        setStep(2);
+    const hospitalPayload = () => ({
+        hospitalName,
+        hospitalType,
+        hospitalRegion,
+        hospitalLocation: hospitalLocation.trim(),
+    });
+
+    const migrateGuestIfAny = async (token) => {
+        const guest = takeGuestDataForMigration();
+        if (!guest || accountType !== 'individual') return;
+        try {
+            await fetch(`${API_URL}/api/me/schedules`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    name: guest.name || 'Migrated guest schedule',
+                    startDate: guest.startDate,
+                    endDate: guest.endDate,
+                    staff: guest.staff || [],
+                    assignments: guest.assignments || [],
+                    holidays: guest.holidays || [],
+                }),
+            });
+        } catch {
+            // non-fatal
+        }
+    };
+
+    const redirectAfterRegister = (data) => {
+        if (data.accountType === 'individual' || accountType === 'individual') {
+            router.push('/individual');
+            return;
+        }
+        if (data.hospitalId) {
+            router.push(`/hospital/${data.hospitalId}/setup`);
+            return;
+        }
+        router.push('/auth/signin?registered=1');
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
-
         if (password !== confirmPassword) { setError('Passwords do not match.'); return; }
         if (password.length < 8) { setError('Password must be at least 8 characters.'); return; }
 
         setLoading(true);
         try {
+            const body = {
+                name: name.trim(),
+                email: email.trim(),
+                password,
+                accountType,
+                ...(accountType === 'enterprise' ? hospitalPayload() : {}),
+            };
             const res = await fetch(`${API_URL}/api/auth/register`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    name: name.trim(),
-                    email: email.trim(),
-                    password,
-                    hospitalName,
-                    hospitalType,
-                    hospitalRegion,
-                    hospitalLocation: hospitalLocation.trim(),
-                }),
+                body: JSON.stringify(body),
             });
             const data = await res.json();
             if (!res.ok) { setError(data.error || 'Registration failed'); return; }
             router.push('/auth/signin?registered=1');
         } catch (err) {
             setError(err.message || 'Network error');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const completeSocialRegister = async (provider) => {
+        setError('');
+        setGoogleLoading(true);
+        try {
+            let result;
+            if (provider === 'google') {
+                result = await signInWithPopup(auth, googleProvider);
+            }
+            const token = await result.user.getIdToken();
+            const endpoint = provider === 'google' ? '/api/auth/register-google' : '/api/auth/register-phone';
+            const res = await fetch(`${API_URL}${endpoint}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    name: result.user.displayName || name.trim() || '',
+                    accountType,
+                    ...(accountType === 'enterprise' ? hospitalPayload() : {}),
+                }),
+            });
+            const data = await res.json();
+            if (res.status === 409 && data.hospitalId) {
+                router.push(`/hospital/${data.hospitalId}`);
+                return;
+            }
+            if (res.status === 409 && data.accountType === 'individual') {
+                router.push('/individual');
+                return;
+            }
+            if (!res.ok) { setError(data.error || 'Registration failed'); return; }
+            await migrateGuestIfAny(token);
+            redirectAfterRegister(data);
+        } catch (err) {
+            setError(mapAuthError(err, 'Registration failed'));
+        } finally {
+            setGoogleLoading(false);
+        }
+    };
+
+    const handlePhoneVerified = async (cred) => {
+        setError('');
+        setLoading(true);
+        try {
+            const token = await cred.user.getIdToken();
+            const res = await fetch(`${API_URL}/api/auth/register-phone`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    name: name.trim() || 'Admin',
+                    accountType,
+                    ...(accountType === 'enterprise' ? hospitalPayload() : {}),
+                }),
+            });
+            const data = await res.json();
+            if (!res.ok && res.status !== 409) { setError(data.error || 'Registration failed'); return; }
+            await migrateGuestIfAny(token);
+            redirectAfterRegister(data);
+        } catch (err) {
+            setError(mapAuthError(err));
         } finally {
             setLoading(false);
         }
@@ -75,24 +188,41 @@ export default function RegisterPage() {
                         </svg>
                     </div>
                     <h1 className="text-3xl font-extrabold text-ghs-deep tracking-tight">MedRoster</h1>
-                    <p className="text-ghs-muted font-medium mt-1 text-sm">Ghana Hospital Staff Scheduling</p>
+                    <p className="text-ghs-muted font-medium mt-1 text-sm">Create your account</p>
                 </div>
 
                 <div className="bg-white rounded-[32px] shadow-synclly border border-slate-100 p-8">
-                    <div className="flex items-center gap-3 mb-7">
-                        <div className={`flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold ${step >= 1 ? 'bg-ghs-teal text-white' : 'bg-slate-100 text-slate-400'}`}>1</div>
-                        <div className={`flex-1 h-0.5 rounded ${step >= 2 ? 'bg-ghs-teal' : 'bg-slate-100'}`} />
-                        <div className={`flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold ${step >= 2 ? 'bg-ghs-teal text-white' : 'bg-slate-100 text-slate-400'}`}>2</div>
-                    </div>
-
-                    {step === 1 ? (
+                    {step === 0 && (
                         <>
-                            <h2 className="text-xl font-extrabold text-ghs-deep mb-1">Your hospital details</h2>
-                            <p className="text-sm text-ghs-muted font-medium mb-7">
+                            <h2 className="text-xl font-extrabold text-ghs-deep mb-1">How will you use MedRoster?</h2>
+                            <p className="text-sm text-ghs-muted font-medium mb-6">
                                 Already registered?{' '}
                                 <Link href="/auth/signin" className="text-ghs-teal font-bold hover:underline">Sign in</Link>
                             </p>
-                            <form onSubmit={handleStep1} className="space-y-4">
+                            <AccountTypePicker value={accountType} onChange={setAccountType} />
+                            <button
+                                type="button"
+                                onClick={() => setStep(accountType === 'enterprise' ? 1 : 2)}
+                                className="w-full h-13 mt-6 bg-ghs-teal text-white rounded-2xl font-bold text-sm"
+                            >
+                                Continue →
+                            </button>
+                            <p className="text-center text-xs text-ghs-muted mt-4">
+                                Or try{' '}
+                                <Link href="/guest" className="text-ghs-teal font-bold hover:underline">Guest mode</Link>
+                                {' '}(local only, limited exports)
+                            </p>
+                        </>
+                    )}
+
+                    {step === 1 && (
+                        <>
+                            <h2 className="text-xl font-extrabold text-ghs-deep mb-1">Hospital details</h2>
+                            <p className="text-sm text-ghs-muted font-medium mb-7">You&apos;ll get a unique join code for staff.</p>
+                            <form
+                                onSubmit={(e) => { e.preventDefault(); if (hospitalName.trim()) setStep(2); }}
+                                className="space-y-4"
+                            >
                                 <div className="space-y-1.5">
                                     <label className="text-[10px] font-bold text-ghs-muted uppercase tracking-widest ml-1">Hospital Name</label>
                                     <input autoFocus required className={inputCls} placeholder="e.g. Korle Bu Teaching Hospital"
@@ -119,59 +249,89 @@ export default function RegisterPage() {
                                     <input className={inputCls} placeholder="e.g. Accra"
                                         value={hospitalLocation} onChange={(e) => setHospitalLocation(e.target.value)} />
                                 </div>
-                                <button type="submit"
-                                    className="w-full h-13 bg-ghs-teal text-white rounded-2xl font-bold text-sm hover:bg-ghs-teal-hover shadow-lg shadow-ghs-teal/20 transition-all active:scale-95 mt-2">
-                                    Continue →
-                                </button>
+                                <div className="flex gap-3">
+                                    <button type="button" onClick={() => setStep(0)} className="h-13 px-6 rounded-2xl border border-slate-200 font-bold text-sm">← Back</button>
+                                    <button type="submit" className="flex-1 h-13 bg-ghs-teal text-white rounded-2xl font-bold text-sm">Continue →</button>
+                                </div>
                             </form>
                         </>
-                    ) : (
+                    )}
+
+                    {step === 2 && (
                         <>
-                            <h2 className="text-xl font-extrabold text-ghs-deep mb-1">Create admin account</h2>
-                            <p className="text-sm text-ghs-muted font-medium mb-7">
-                                For <span className="font-bold text-ghs-deep">{hospitalName}</span>
+                            <h2 className="text-xl font-extrabold text-ghs-deep mb-1">Create your account</h2>
+                            <p className="text-sm text-ghs-muted font-medium mb-6">
+                                {accountType === 'enterprise' ? (
+                                    <>For <span className="font-bold text-ghs-deep">{hospitalName}</span></>
+                                ) : 'Individual account — schedules saved to the cloud'}
                             </p>
-                            <form onSubmit={handleSubmit} className="space-y-4">
-                                <div className="space-y-1.5">
-                                    <label className="text-[10px] font-bold text-ghs-muted uppercase tracking-widest ml-1">Your Name</label>
-                                    <input type="text" required autoFocus className={inputCls} placeholder="e.g. Dr. Kwame Mensah"
-                                        value={name} onChange={(e) => setName(e.target.value)} />
-                                </div>
-                                <div className="space-y-1.5">
-                                    <label className="text-[10px] font-bold text-ghs-muted uppercase tracking-widest ml-1">Email Address</label>
-                                    <input type="email" required autoComplete="email" className={inputCls} placeholder="you@hospital.gh"
-                                        value={email} onChange={(e) => setEmail(e.target.value)} />
-                                </div>
-                                <div className="space-y-1.5">
-                                    <label className="text-[10px] font-bold text-ghs-muted uppercase tracking-widest ml-1">Password</label>
-                                    <input type="password" required autoComplete="new-password" className={inputCls} placeholder="Minimum 8 characters"
-                                        value={password} onChange={(e) => setPassword(e.target.value)} />
-                                </div>
-                                <div className="space-y-1.5">
-                                    <label className="text-[10px] font-bold text-ghs-muted uppercase tracking-widest ml-1">Confirm Password</label>
-                                    <input type="password" required autoComplete="new-password" className={inputCls} placeholder="Repeat password"
-                                        value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
-                                </div>
-                                {error && (
-                                    <div className="bg-rose-50 border border-rose-100 rounded-xl p-3 text-xs font-bold text-rose-600">{error}</div>
-                                )}
-                                <div className="flex gap-3 pt-1">
-                                    <button type="button" onClick={() => setStep(1)}
-                                        className="h-13 px-6 rounded-2xl bg-white border border-slate-200 text-ghs-muted font-bold text-sm hover:bg-slate-50 transition-all active:scale-95 shadow-sm">
-                                        ← Back
+
+                            {!showPhone && (
+                                <>
+                                    <GoogleSignInButton
+                                        onClick={() => completeSocialRegister('google')}
+                                        loading={googleLoading}
+                                        label="Sign up with Google"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPhone(true)}
+                                        className="w-full h-13 mt-3 bg-white border border-slate-200 rounded-2xl font-bold text-sm hover:bg-slate-50"
+                                    >
+                                        Sign up with phone (OTP)
                                     </button>
-                                    <button type="submit" disabled={loading}
-                                        className="flex-1 h-13 bg-ghs-teal text-white rounded-2xl font-bold text-sm hover:bg-ghs-teal-hover shadow-lg shadow-ghs-teal/20 transition-all active:scale-95 disabled:opacity-50">
-                                        {loading ? 'Creating account…' : 'Create Account'}
-                                    </button>
+                                    <AuthDivider label="or use email" />
+                                </>
+                            )}
+
+                            {showPhone ? (
+                                <div className="space-y-4">
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-bold text-ghs-muted uppercase tracking-widest ml-1">Your Name</label>
+                                        <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" />
+                                    </div>
+                                    <PhoneAuthPanel onVerified={handlePhoneVerified} buttonLabel="Send OTP" />
+                                    <button type="button" className="text-xs font-bold text-ghs-muted" onClick={() => setShowPhone(false)}>← Back to other options</button>
                                 </div>
-                            </form>
+                            ) : (
+                                <form onSubmit={handleSubmit} className="space-y-4">
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-bold text-ghs-muted uppercase tracking-widest ml-1">Your Name</label>
+                                        <input type="text" required className={inputCls} value={name} onChange={(e) => setName(e.target.value)} />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-bold text-ghs-muted uppercase tracking-widest ml-1">Email</label>
+                                        <input type="email" required className={inputCls} value={email} onChange={(e) => setEmail(e.target.value)} />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-bold text-ghs-muted uppercase tracking-widest ml-1">Password</label>
+                                        <input type="password" required className={inputCls} value={password} onChange={(e) => setPassword(e.target.value)} />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-bold text-ghs-muted uppercase tracking-widest ml-1">Confirm Password</label>
+                                        <input type="password" required className={inputCls} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
+                                    </div>
+                                    {error && <div className="bg-rose-50 border border-rose-100 rounded-xl p-3 text-xs font-bold text-rose-600">{error}</div>}
+                                    <div className="flex gap-3">
+                                        <button type="button" onClick={() => setStep(accountType === 'enterprise' ? 1 : 0)}
+                                            className="h-13 px-6 rounded-2xl border border-slate-200 font-bold text-sm">← Back</button>
+                                        <button type="submit" disabled={loading} className="flex-1 h-13 bg-ghs-teal text-white rounded-2xl font-bold text-sm disabled:opacity-50">
+                                            {loading ? 'Creating…' : 'Create Account'}
+                                        </button>
+                                    </div>
+                                </form>
+                            )}
+                            {error && showPhone && (
+                                <div className="bg-rose-50 border border-rose-100 rounded-xl p-3 text-xs font-bold text-rose-600 mt-3">{error}</div>
+                            )}
                         </>
                     )}
                 </div>
 
                 <p className="text-center text-xs text-ghs-muted mt-6 font-medium">
                     <Link href="/" className="hover:text-ghs-teal transition-colors">← Back to home</Link>
+                    {' · '}
+                    <Link href="/auth/join" className="hover:text-ghs-teal transition-colors">Join a hospital</Link>
                 </p>
             </div>
         </div>

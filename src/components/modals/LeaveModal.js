@@ -21,6 +21,8 @@ export function LeaveManagerPanel({ hospitalId, staff, onUpdated }) {
         (a, b) => new Date(b.startDate) - new Date(a.startDate)
     );
 
+    const recordId = (r, idx) => r.id || r._id || `${r.startDate || ''}-${r.endDate || ''}-${r.leaveType || ''}-${idx}`;
+
     const handleAdd = async () => {
         if (!startDate || !endDate) { setError('Both dates are required'); return; }
         setBusy(true);
@@ -135,8 +137,8 @@ export function LeaveManagerPanel({ hospitalId, staff, onUpdated }) {
                     <p className="text-synclly-muted text-sm font-medium">None yet.</p>
                 ) : (
                     <div className="space-y-2">
-                        {records.map((r) => (
-                            <div key={r._id} className="flex items-center justify-between p-3 bg-synclly-surface rounded-2xl">
+                        {records.map((r, idx) => (
+                            <div key={recordId(r, idx)} className="flex items-center justify-between p-3 bg-synclly-surface rounded-2xl">
                                 <div>
                                     <div className="text-sm font-extrabold text-synclly-deep">
                                         {formatDate(r.startDate)} → {formatDate(r.endDate)}
@@ -147,8 +149,8 @@ export function LeaveManagerPanel({ hospitalId, staff, onUpdated }) {
                                 </div>
                                 <button
                                     type="button"
-                                    disabled={busyDeleteId === r._id}
-                                    onClick={() => handleDelete(r._id)}
+                                    disabled={busyDeleteId === recordId(r, idx)}
+                                    onClick={() => handleDelete(r.id || r._id)}
                                     className="text-rose-400 hover:text-rose-500 hover:bg-rose-50 w-8 h-8 rounded-lg flex items-center justify-center disabled:opacity-50"
                                     aria-label="Remove leave period"
                                 >

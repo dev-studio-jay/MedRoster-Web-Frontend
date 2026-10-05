@@ -1,41 +1,46 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiFetch } from '../../lib/api';
 import HospitalSidebar from './HospitalSidebar';
 import DepartmentsTab from './DepartmentsTab';
-import StaffTab from './StaffTab';
-import SchedulesTab from './SchedulesTab';
-
-const TABS = [
-    { id: 'departments', label: 'Wards' },
-    { id: 'staff', label: 'Staff' },
-    { id: 'schedules', label: 'Schedules' },
-];
+import WardHome from './WardHome';
+import JoinCodeEditor from './JoinCodeEditor';
+import { useFirebaseAuth } from '../FirebaseAuthProvider';
+import { collapseOrgUnits, getDisplayWards } from '../../lib/org-units';
 
 export default function HospitalDashboard({ hospitalId }) {
     const router = useRouter();
+    const { role, status } = useFirebaseAuth();
+    const canWrite = role !== 'staff';
     const [hospital, setHospital] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState('departments');
-    const [activeWardId, setActiveWardId] = useState('all');
+    const [activeTab, setActiveTab] = useState('ward');
+    const [activeWardId, setActiveWardId] = useState('');
     const [sidebarOpen, setSidebarOpen] = useState(false);
 
     const fetchHospital = useCallback(async () => {
+        if (status === 'loading') return;
         try {
             const data = await apiFetch(`/api/hospitals/${hospitalId}`);
-            if (!data.departments || data.departments.length === 0) {
+            if (canWrite && (!data.departments || data.departments.length === 0)) {
                 router.replace(`/hospital/${hospitalId}/setup`);
                 return;
             }
-            setHospital(data);
+            const { departments, wards } = collapseOrgUnits(data.departments, data.wards);
+            const displayWards = getDisplayWards(departments, wards);
+            setHospital({ ...data, departments, wards });
+            setActiveWardId((current) => {
+                if (current && displayWards.some((w) => String(w._id) === String(current))) return current;
+                return displayWards[0]?._id || wards[0]?._id || '';
+            });
         } catch {
             router.push('/');
         } finally {
             setLoading(false);
         }
-    }, [hospitalId, router]);
+    }, [hospitalId, router, canWrite, status]);
 
     useEffect(() => {
         fetchHospital();
@@ -43,9 +48,18 @@ export default function HospitalDashboard({ hospitalId }) {
 
     const openWard = (wardId) => {
         setActiveWardId(wardId);
-        setActiveTab('staff');
+        setActiveTab('ward');
         setSidebarOpen(false);
     };
+
+    const activeWard = useMemo(
+        () => (hospital?.wards || []).find((w) => String(w._id) === String(activeWardId)),
+        [hospital, activeWardId]
+    );
+    const activeDepartment = useMemo(
+        () => (hospital?.departments || []).find((d) => String(d._id) === String(activeWard?.departmentId)),
+        [hospital, activeWard]
+    );
 
     if (loading || !hospital) {
         return (
@@ -60,15 +74,16 @@ export default function HospitalDashboard({ hospitalId }) {
             <HospitalSidebar
                 hospital={hospital}
                 activeTab={activeTab}
+                activeWardId={activeWardId}
                 onTabChange={setActiveTab}
                 onWardOpen={openWard}
-                tabs={TABS}
                 isOpen={sidebarOpen}
                 onToggle={() => setSidebarOpen(!sidebarOpen)}
+                canWrite={canWrite}
+                showSettings={role === 'admin'}
             />
 
             <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
-                {/* Mobile top bar */}
                 <div className="md:hidden flex items-center justify-between px-5 py-4 bg-white border-b border-slate-100">
                     <button
                         onClick={() => setSidebarOpen(true)}
@@ -81,45 +96,44 @@ export default function HospitalDashboard({ hospitalId }) {
                     <div className="w-9" />
                 </div>
 
-                <header className="px-6 md:px-10 pt-8 pb-6 flex flex-col md:flex-row md:items-end justify-between gap-6">
-                    <div className="space-y-1">
-                        <p className="text-[10px] font-bold text-ghs-muted uppercase tracking-widest">
-                            {hospital.type} · {hospital.region}
-                        </p>
-                        <h1>{hospital.name}</h1>
-                    </div>
-
-                    <div className="h-10 bg-white border border-slate-200 rounded-2xl flex p-1 shadow-synclly overflow-hidden">
-                        {TABS.map((t) => (
-                            <button
-                                key={t.id}
-                                onClick={() => setActiveTab(t.id)}
-                                className={`px-4 text-[11px] font-bold rounded-xl transition-all ${
-                                    activeTab === t.id
-                                        ? 'bg-ghs-teal-light text-ghs-teal'
-                                        : 'text-ghs-muted hover:text-ghs-deep'
-                                }`}
-                            >
-                                {t.label}
-                            </button>
-                        ))}
-                    </div>
+                <header className="px-6 md:px-10 pt-8 pb-6">
+                    <p className="text-[10px] font-bold text-ghs-muted uppercase tracking-widest">
+                        {hospital.type} · {hospital.region}
+                    </p>
+                    <h1>{hospital.name}</h1>
                 </header>
 
                 <main className="px-6 md:px-10 pb-20 flex-1 flex flex-col min-h-0">
                     {activeTab === 'departments' && (
-                        <DepartmentsTab hospital={hospital} onChange={fetchHospital} onWardOpen={openWard} />
+                        <DepartmentsTab hospital={hospital} onChange={fetchHospital} onWardOpen={openWard} canWrite={canWrite} />
                     )}
-                    {activeTab === 'staff' && (
-                        <StaffTab
+                    {activeTab === 'ward' && activeWard && (
+                        <WardHome
                             hospital={hospital}
+                            ward={activeWard}
+                            department={activeDepartment}
                             onChange={fetchHospital}
-                            activeWardId={activeWardId}
-                            onWardChange={setActiveWardId}
                         />
                     )}
-                    {activeTab === 'schedules' && (
-                        <SchedulesTab hospital={hospital} />
+                    {activeTab === 'ward' && !activeWard && (
+                        <div className="flex flex-col items-center justify-center py-32 text-center bg-white rounded-[40px] border border-slate-100 shadow-synclly">
+                            <h3 className="text-xl font-extrabold text-synclly-deep">Pick a ward</h3>
+                            <p className="text-synclly-muted text-sm font-medium max-w-xs mt-2">
+                                Choose a ward on the left, or add one under Add / edit wards.
+                            </p>
+                        </div>
+                    )}
+                    {activeTab === 'settings' && role === 'admin' && (
+                        <div className="max-w-lg space-y-4">
+                            <JoinCodeEditor
+                                hospitalId={hospital._id}
+                                joinCode={hospital.joinCode}
+                                onUpdated={(code) => setHospital((h) => ({ ...h, joinCode: code }))}
+                            />
+                            <p className="text-xs text-ghs-muted">
+                                Share this code with staff so they can join via <strong>Join hospital</strong> and view schedules (read-only).
+                            </p>
+                        </div>
                     )}
                 </main>
             </div>

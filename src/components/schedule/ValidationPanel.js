@@ -1,14 +1,52 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '../../lib/api';
 
 const TYPE_LABEL = {
-    leave_conflict: 'Leave conflict',
-    role_shift_incompatible: 'Role restriction',
+    leave_conflict: 'Leave',
+    role_shift_incompatible: 'Role',
     supervisory_coverage: 'Coverage',
     max_hours: 'Hours',
+    off_day_target: 'Off days',
 };
+
+function groupIssues(items = []) {
+    const groups = new Map();
+    for (const item of items) {
+        let key;
+        let title;
+        if (item.type === 'leave_conflict') {
+            key = `leave:${item.staffId || item.staffName}`;
+            title = item.staffName || 'Someone';
+        } else if (item.type === 'supervisory_coverage') {
+            key = 'coverage';
+            title = 'Days with no senior on duty';
+        } else if (item.type === 'max_hours' || item.type === 'off_day_target') {
+            key = `${item.type}:${item.staffId || item.message}`;
+            title = item.staffName ? `${item.staffName} — ${item.message}` : item.message;
+        } else {
+            key = `${item.type}:${item.staffId || item.message}:${item.date || ''}`;
+            title = item.message;
+        }
+        if (!groups.has(key)) groups.set(key, { key, type: item.type, title, count: 0, dates: [], message: item.message });
+        const group = groups.get(key);
+        group.count += 1;
+        if (item.date) group.dates.push(item.date);
+    }
+    return [...groups.values()].map((group) => {
+        if (group.type === 'leave_conflict') {
+            group.title = group.message.replace(/ is on leave$/, '') + ` — ${group.count} shift${group.count === 1 ? '' : 's'} while on leave`;
+        }
+        if (group.type === 'supervisory_coverage') {
+            group.title = `${group.count} day${group.count === 1 ? '' : 's'} with no senior on duty`;
+            group.detail = group.dates
+                .map((d) => new Date(d).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }))
+                .join(', ');
+        }
+        return group;
+    });
+}
 
 export default function ValidationPanel({ hospitalId, scheduleId, dataVersion }) {
     const [result, setResult] = useState(null);
@@ -18,8 +56,8 @@ export default function ValidationPanel({ hospitalId, scheduleId, dataVersion })
     const validate = useCallback(async () => {
         setBusy(true);
         try {
-            const result = await apiFetch(`/api/hospitals/${hospitalId}/schedules/${scheduleId}/validate`, { method: 'POST' });
-            setResult(result);
+            const next = await apiFetch(`/api/hospitals/${hospitalId}/schedules/${scheduleId}/validate`, { method: 'POST' });
+            setResult(next);
         } catch {
             // Silently ignore — panel simply won't update
         } finally {
@@ -30,6 +68,9 @@ export default function ValidationPanel({ hospitalId, scheduleId, dataVersion })
     useEffect(() => {
         validate();
     }, [validate, dataVersion]);
+
+    const errorGroups = useMemo(() => groupIssues(result?.errors), [result]);
+    const warningGroups = useMemo(() => groupIssues(result?.warnings), [result]);
 
     if (!result) return null;
 
@@ -65,10 +106,10 @@ export default function ValidationPanel({ hospitalId, scheduleId, dataVersion })
                         </div>
                         <div className="text-left">
                             <p className="text-sm font-extrabold text-synclly-deep">
-                                {isValid ? 'Schedule valid' : `${errorCount} ${errorCount === 1 ? 'issue' : 'issues'}`}
+                                {isValid ? 'Schedule valid' : `${errorGroups.length} ${errorGroups.length === 1 ? 'issue' : 'issues'}`}
                             </p>
                             <p className="text-[11px] font-bold text-synclly-muted uppercase tracking-wider">
-                                {warningCount > 0 ? `${warningCount} warning${warningCount === 1 ? '' : 's'}` : 'Real-time check'}
+                                {warningCount > 0 ? `${warningGroups.length} warning${warningGroups.length === 1 ? '' : 's'}` : 'Real-time check'}
                             </p>
                         </div>
                     </div>
@@ -77,25 +118,28 @@ export default function ValidationPanel({ hospitalId, scheduleId, dataVersion })
                     </svg>
                 </button>
 
-                {open && (errorCount > 0 || warningCount > 0) && (
+                {open && (errorGroups.length > 0 || warningGroups.length > 0) && (
                     <div className="border-t border-slate-100 max-h-72 overflow-y-auto">
-                        {result.errors?.map((e, i) => (
-                            <div key={`e${i}`} className="px-5 py-3 border-b border-slate-50 last:border-0">
+                        {errorGroups.map((g) => (
+                            <div key={`e${g.key}`} className="px-5 py-3 border-b border-slate-50 last:border-0">
                                 <div className="flex items-start gap-2">
                                     <span className="text-[9px] font-extrabold uppercase tracking-widest px-1.5 py-0.5 rounded bg-rose-50 text-rose-600 border border-rose-100 shrink-0 mt-0.5">
-                                        {TYPE_LABEL[e.type] || e.type}
+                                        {TYPE_LABEL[g.type] || g.type}
                                     </span>
-                                    <p className="text-xs font-bold text-synclly-deep leading-snug">{e.message}</p>
+                                    <div>
+                                        <p className="text-xs font-bold text-synclly-deep leading-snug">{g.title}</p>
+                                        {g.detail && <p className="text-[11px] font-medium text-synclly-muted mt-1 leading-snug">{g.detail}</p>}
+                                    </div>
                                 </div>
                             </div>
                         ))}
-                        {result.warnings?.map((w, i) => (
-                            <div key={`w${i}`} className="px-5 py-3 border-b border-slate-50 last:border-0">
+                        {warningGroups.map((g) => (
+                            <div key={`w${g.key}`} className="px-5 py-3 border-b border-slate-50 last:border-0">
                                 <div className="flex items-start gap-2">
                                     <span className="text-[9px] font-extrabold uppercase tracking-widest px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-100 shrink-0 mt-0.5">
-                                        {TYPE_LABEL[w.type] || w.type}
+                                        {TYPE_LABEL[g.type] || g.type}
                                     </span>
-                                    <p className="text-xs font-bold text-synclly-deep leading-snug">{w.message}</p>
+                                    <p className="text-xs font-bold text-synclly-deep leading-snug">{g.title}</p>
                                 </div>
                             </div>
                         ))}

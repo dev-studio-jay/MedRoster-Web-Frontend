@@ -58,6 +58,33 @@ export const DEPARTMENT_TEMPLATES = [
     { name: 'Polyclinic', description: 'Family medicine and general practice' },
 ];
 
+/** Common Ghana hospital ward names (presets for Enterprise setup). */
+export const WARD_PRESETS = [
+    'Male Medical Ward',
+    'Female Medical Ward',
+    'Male Surgical Ward',
+    'Female Surgical Ward',
+    'Paediatric Ward',
+    'Maternity Ward',
+    'Delivery Suite',
+    'Labour Ward',
+    'Gynaecology Ward',
+    'Orthopaedic Ward',
+    'ICU',
+    'NICU',
+    'PICU',
+    'HDU',
+    'A&E',
+    'OPD',
+    'Theatre',
+    'Recovery Ward',
+    'Isolation Ward',
+    'Psychiatric Ward',
+    'Eye Ward',
+    'ENT Ward',
+    'Burns Ward',
+];
+
 // Staff categories — high-level professional grouping
 export const STAFF_CATEGORIES = [
     'Nurse',
@@ -93,8 +120,12 @@ export const NURSING_RANKS = [
     'Principal Nursing Officer',
     'Principal Midwifery Officer',
     'Assistant Midwifery Principal',
+    'Deputy Chief Nursing Officer',
+    'Deputy Chief Midwifery Officer',
     'Deputy Director of Nursing Services',
     'Director of Nursing Services',
+    'Regional Chief Nursing & Midwifery Officer',
+    'Director, Nursing & Midwifery Service',
 ];
 
 // Medical & Dental Council ranks for doctors

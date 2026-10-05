@@ -1,19 +1,19 @@
 'use client';
 
 import Link from 'next/link';
+import { getDisplayWardsForDepartment } from '../../lib/org-units';
 
-function normalizeName(value) {
-    return String(value || '').trim().toLowerCase();
-}
-
-function getDisplayWards(department, wards) {
-    const departmentWards = wards.filter((w) => String(w.departmentId) === String(department._id));
-    const realWards = departmentWards.filter((ward) => normalizeName(ward.name) !== normalizeName(department.name));
-
-    return realWards.length > 0 ? realWards : departmentWards;
-}
-
-export default function HospitalSidebar({ hospital, activeTab, onTabChange, tabs, isOpen, onToggle, onWardOpen }) {
+export default function HospitalSidebar({
+    hospital,
+    activeTab,
+    activeWardId,
+    onTabChange,
+    onWardOpen,
+    isOpen,
+    onToggle,
+    canWrite = true,
+    showSettings = true,
+}) {
     const departments = hospital.departments || [];
     const wards = hospital.wards || [];
 
@@ -41,50 +41,66 @@ export default function HospitalSidebar({ hospital, activeTab, onTabChange, tabs
 
                 <div className="flex-1 overflow-y-auto px-4 space-y-8">
                     <div className="space-y-1">
-                        <h4 className="px-4 mb-4">Manage</h4>
-                        {tabs.map((t) => (
-                            <button
-                                key={t.id}
-                                className={`w-full sidebar-item ${activeTab === t.id ? 'sidebar-item-active' : 'text-ghs-muted hover:bg-slate-50'}`}
-                                onClick={() => onTabChange(t.id)}
-                            >
-                                {t.label}
-                            </button>
-                        ))}
-                    </div>
-
-                    {departments.length > 0 && (
-                        <div className="space-y-1">
-                            <h4 className="px-4 mb-4">Wards by department</h4>
-                            <div className="space-y-1 max-h-[40vh] overflow-y-auto">
+                        <h4 className="px-4 mb-3">Wards</h4>
+                        {departments.length === 0 ? (
+                            <p className="px-4 text-[11px] font-medium text-ghs-muted">Add a department group first.</p>
+                        ) : (
+                            <div className="space-y-1">
                                 {departments.map((d) => {
-                                    const departmentWards = getDisplayWards(d, wards);
+                                    const departmentWards = getDisplayWardsForDepartment(d, wards);
                                     return (
-                                        <div key={d._id} className="px-4 py-2 rounded-xl bg-slate-50/50">
+                                        <div key={d._id} className="px-3 py-2 rounded-xl bg-slate-50/50">
                                             <div className="flex items-center gap-2 text-[12px] font-bold text-ghs-deep">
                                                 <div className="w-2 h-2 rounded-full bg-ghs-teal/60" />
                                                 <span className="flex-1 truncate">{d.name}</span>
                                             </div>
                                             {departmentWards.length > 0 && (
                                                 <div className="mt-2 ml-4 space-y-1">
-                                                    {departmentWards.map((ward) => (
-                                                        <button
-                                                            key={ward._id}
-                                                            type="button"
-                                                            onClick={() => onWardOpen?.(ward._id)}
-                                                            className="block w-full text-left text-[10px] font-bold text-ghs-muted hover:text-ghs-teal truncate"
-                                                        >
-                                                            {ward.name}
-                                                        </button>
-                                                    ))}
+                                                    {departmentWards.map((ward) => {
+                                                        const active = activeTab === 'ward' && String(activeWardId) === String(ward._id);
+                                                        return (
+                                                            <button
+                                                                key={ward._id}
+                                                                type="button"
+                                                                onClick={() => onWardOpen?.(ward._id)}
+                                                                className={`block w-full text-left text-[11px] font-bold truncate rounded-lg px-2 py-1 ${
+                                                                    active
+                                                                        ? 'bg-ghs-teal-light text-ghs-teal'
+                                                                        : 'text-ghs-muted hover:text-ghs-teal'
+                                                                }`}
+                                                            >
+                                                                {ward.name}
+                                                            </button>
+                                                        );
+                                                    })}
                                                 </div>
                                             )}
                                         </div>
                                     );
                                 })}
                             </div>
-                        </div>
-                    )}
+                        )}
+                    </div>
+
+                    <div className="space-y-1">
+                        <h4 className="px-4 mb-3">Hospital</h4>
+                        {canWrite && (
+                            <button
+                                className={`w-full sidebar-item ${activeTab === 'departments' ? 'sidebar-item-active' : 'text-ghs-muted hover:bg-slate-50'}`}
+                                onClick={() => onTabChange('departments')}
+                            >
+                                Add / edit wards
+                            </button>
+                        )}
+                        {showSettings && (
+                            <button
+                                className={`w-full sidebar-item ${activeTab === 'settings' ? 'sidebar-item-active' : 'text-ghs-muted hover:bg-slate-50'}`}
+                                onClick={() => onTabChange('settings')}
+                            >
+                                Settings
+                            </button>
+                        )}
+                    </div>
                 </div>
 
                 <div className="p-4 border-t border-slate-50">

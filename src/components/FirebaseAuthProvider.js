@@ -10,7 +10,9 @@ export function FirebaseAuthProvider({ children }) {
     const [user, setUser] = useState(null);
     const [hospitalId, setHospitalId] = useState(null);
     const [role, setRole] = useState(null);
-    const [status, setStatus] = useState('loading'); // 'loading' | 'authenticated' | 'unauthenticated'
+    const [accountType, setAccountType] = useState(null);
+    const [joinCode, setJoinCode] = useState(null);
+    const [status, setStatus] = useState('loading');
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -18,25 +20,29 @@ export function FirebaseAuthProvider({ children }) {
                 setUser(null);
                 setHospitalId(null);
                 setRole(null);
+                setAccountType(null);
+                setJoinCode(null);
                 setStatus('unauthenticated');
                 return;
             }
 
             try {
-                // Fetch user profile from backend to get hospitalId and role
-                const token = await firebaseUser.getIdToken();
-                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/hospitals`, {
+                const token = await firebaseUser.getIdToken(true);
+                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/auth/me`, {
                     headers: { Authorization: `Bearer ${token}` },
                 });
                 if (res.ok) {
-                    const hospitals = await res.json();
-                    const h = hospitals[0];
-                    setHospitalId(h?._id || null);
+                    const me = await res.json();
+                    setHospitalId(me.hospitalId || null);
+                    setRole(me.role || 'admin');
+                    setAccountType(me.accountType || null);
+                    setJoinCode(me.joinCode || null);
+                } else {
+                    // Profile may not exist yet (mid-registration)
+                    setHospitalId(null);
+                    setRole(null);
+                    setAccountType(null);
                 }
-
-                // Get custom claims for role (set via Admin SDK if needed)
-                const tokenResult = await firebaseUser.getIdTokenResult();
-                setRole(tokenResult.claims.role || 'admin');
                 setUser(firebaseUser);
                 setStatus('authenticated');
             } catch {
@@ -49,7 +55,7 @@ export function FirebaseAuthProvider({ children }) {
     }, []);
 
     return (
-        <AuthContext.Provider value={{ user, hospitalId, role, status }}>
+        <AuthContext.Provider value={{ user, hospitalId, role, accountType, joinCode, status }}>
             {children}
         </AuthContext.Provider>
     );

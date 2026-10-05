@@ -6,7 +6,6 @@ import { signOut } from 'firebase/auth';
 import { useFirebaseAuth } from '../components/FirebaseAuthProvider';
 import { auth } from '../lib/firebase';
 import { apiFetch } from '../lib/api';
-import CreateHospitalModal from '../components/modals/CreateHospitalModal';
 import RulesModal from '../components/modals/RulesModal';
 
 export default function LandingPage() {
@@ -14,7 +13,6 @@ export default function LandingPage() {
   const isLoggedIn = status === 'authenticated';
 
   const [hospitals, setHospitals] = useState([]);
-  const [showCreate, setShowCreate] = useState(false);
   const [showRules, setShowRules] = useState(false);
   const [loading, setLoading] = useState(true);
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -37,10 +35,6 @@ export default function LandingPage() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleCreated = (newHospital) => {
-    window.location.href = `/hospital/${newHospital._id}/setup`;
   };
 
   const handleSignOut = async () => {
@@ -121,15 +115,21 @@ export default function LandingPage() {
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-6 animate-in fade-in slide-in-from-bottom-10 duration-1000 delay-300">
           {isLoggedIn ? (
-            <Link href={`/hospital/${hospitalId}`}
+            <Link href={hospitalId ? `/hospital/${hospitalId}` : '/individual'}
               className="btn px-10 py-5 text-lg bg-ghs-teal text-white hover:bg-ghs-teal-hover shadow-lg shadow-ghs-teal/20 hover:-translate-y-1 transition-all rounded-2xl font-bold">
               Go to Dashboard
             </Link>
           ) : (
-            <Link href="/auth/register"
-              className="btn px-10 py-5 text-lg bg-ghs-teal text-white hover:bg-ghs-teal-hover shadow-lg shadow-ghs-teal/20 hover:-translate-y-1 transition-all rounded-2xl font-bold">
-              Register Your Hospital
-            </Link>
+            <>
+              <Link href="/auth/register"
+                className="btn px-10 py-5 text-lg bg-ghs-teal text-white hover:bg-ghs-teal-hover shadow-lg shadow-ghs-teal/20 hover:-translate-y-1 transition-all rounded-2xl font-bold">
+                Get started
+              </Link>
+              <Link href="/guest"
+                className="px-8 py-4 rounded-2xl bg-white border border-slate-100 text-sm font-extrabold text-ghs-muted hover:text-ghs-teal shadow-sm">
+                Try guest mode
+              </Link>
+            </>
           )}
           <button
             onClick={() => setShowRules(true)}
@@ -263,7 +263,6 @@ export default function LandingPage() {
         </div>
       )}
 
-      {showCreate && <CreateHospitalModal onClose={() => setShowCreate(false)} onCreated={handleCreated} />}
       {showRules && <RulesModal onClose={() => setShowRules(false)} />}
     </div>
   );

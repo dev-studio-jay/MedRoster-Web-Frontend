@@ -1,13 +1,30 @@
 {
   "indexes": [
-    {
-      "collectionGroup": "staff",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "wardId", "order": "ASCENDING" },
-        { "fieldPath": "employmentStatus", "order": "ASCENDING" }
-      ]
-    },
+        {
+          "collectionGroup": "staff",
+          "queryScope": "COLLECTION",
+          "fields": [
+            { "fieldPath": "wardId", "order": "ASCENDING" },
+            { "fieldPath": "employmentStatus", "order": "ASCENDING" }
+          ]
+        },
+        {
+          "collectionGroup": "staff",
+          "queryScope": "COLLECTION",
+          "fields": [
+            { "fieldPath": "lastName", "order": "ASCENDING" },
+            { "fieldPath": "firstName", "order": "ASCENDING" }
+          ]
+        },
+        {
+          "collectionGroup": "staff",
+          "queryScope": "COLLECTION",
+          "fields": [
+            { "fieldPath": "wardId", "order": "ASCENDING" },
+            { "fieldPath": "lastName", "order": "ASCENDING" },
+            { "fieldPath": "firstName", "order": "ASCENDING" }
+          ]
+        },
     {
       "collectionGroup": "schedules",
       "queryScope": "COLLECTION",

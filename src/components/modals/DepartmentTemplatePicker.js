@@ -9,16 +9,22 @@ import { DEPARTMENT_TEMPLATES } from '../../lib/ghana-data';
 //
 // onSave: async (departments[]) => void  — caller does the API call.
 // onSkip: optional, lets caller add departments later.
-export default function DepartmentTemplatePicker({ onSave, onSkip, busy = false, error = '' }) {
+export default function DepartmentTemplatePicker({ onSave, onSkip, busy = false, error = '', existingNames = [] }) {
+    const alreadyAdded = new Set(existingNames.map((name) => String(name || '').trim().toLowerCase()).filter(Boolean));
     const [step, setStep] = useState(1);
     const [selected, setSelected] = useState(() => {
-        // Pre-select common base set
+        // Pre-select common base set that is not already on the hospital
         const base = ['Accident & Emergency', 'Outpatient Department', 'Pharmacy', 'Maternity'];
-        return new Set(DEPARTMENT_TEMPLATES.filter((t) => base.includes(t.name)).map((t) => t.name));
+        return new Set(
+            DEPARTMENT_TEMPLATES
+                .filter((t) => base.includes(t.name) && !alreadyAdded.has(t.name.toLowerCase()))
+                .map((t) => t.name)
+        );
     });
     const [editable, setEditable] = useState([]);
 
     const toggle = (name) => {
+        if (alreadyAdded.has(name.toLowerCase())) return;
         const next = new Set(selected);
         if (next.has(name)) next.delete(name);
         else next.add(name);
@@ -49,7 +55,7 @@ export default function DepartmentTemplatePicker({ onSave, onSkip, busy = false,
     const handleSave = () => {
         const valid = editable
             .map((d) => ({ name: d.name.trim(), description: (d.description || '').trim() }))
-            .filter((d) => d.name);
+            .filter((d) => d.name && !alreadyAdded.has(d.name.toLowerCase()));
         if (valid.length === 0) return;
         onSave(valid);
     };
@@ -78,14 +84,18 @@ export default function DepartmentTemplatePicker({ onSave, onSkip, busy = false,
                     {step === 1 ? (
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                             {DEPARTMENT_TEMPLATES.map((t) => {
-                                const active = selected.has(t.name);
+                                const exists = alreadyAdded.has(t.name.toLowerCase());
+                                const active = selected.has(t.name) && !exists;
                                 return (
                                     <button
                                         key={t.name}
                                         type="button"
                                         onClick={() => toggle(t.name)}
+                                        disabled={exists}
                                         className={`text-left p-4 rounded-2xl border transition-all ${
-                                            active
+                                            exists
+                                                ? 'bg-slate-50 border-slate-100 text-synclly-muted cursor-not-allowed'
+                                                : active
                                                 ? 'bg-synclly-coral/5 border-synclly-coral text-synclly-deep shadow-sm'
                                                 : 'bg-synclly-surface border-slate-100 text-synclly-deep hover:border-slate-300'
                                         }`}
@@ -104,7 +114,9 @@ export default function DepartmentTemplatePicker({ onSave, onSkip, busy = false,
                                                 )}
                                             </span>
                                         </div>
-                                        <p className="text-[11px] text-synclly-muted leading-snug">{t.description}</p>
+                                        <p className="text-[11px] text-synclly-muted leading-snug">
+                                            {exists ? 'Already added' : t.description}
+                                        </p>
                                     </button>
                                 );
                             })}

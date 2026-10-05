@@ -46,20 +46,48 @@ function isOnLeave(staff, date) {
 // rank abbreviation lookup for the RANK column (matches docs style)
 const RANK_ABBR = {
     'Assistant Midwifery Principal': 'AMPS',
+    'Principal Midwifery Officer': 'PMO',
     'Senior Midwifery Officer': 'SMO',
     'Midwifery Officer': 'MO',
     'Senior Staff Midwife': 'SSM',
     'Staff Midwife': 'SM',
-    'Senior Staff Nurse': 'SSN',
     'Registered Midwife': 'RM',
+    'Deputy Director of Nursing Services': 'DDNS',
+    'Director of Nursing Services': 'DNS',
+    'Principal Nursing Officer': 'PNO',
     'Senior Nursing Officer': 'SNO',
     'Nursing Officer': 'NO',
+    'Senior Staff Nurse': 'SSN',
+    'Staff Nurse': 'SN',
+    'Enrolled Nurse': 'EN',
+    'Nurse Assistant Clinical': 'NAC',
+    'Nurse Assistant Preventive': 'NAP',
     'Senior Medical Officer': 'SMO',
     'Medical Officer': 'MO',
+    'House Officer': 'HO',
+    'Specialist': 'Spec',
+    'Senior Specialist': 'SSpec',
+    'Consultant': 'Cons',
+    'Senior Consultant': 'SCons',
+    'Physician Assistant': 'PA',
+    'Senior Physician Assistant': 'SPA',
+    'Community Health Nurse': 'CHN',
+    'Community Health Nursing Officer': 'CHNO',
 };
 
 function getRankAbbr(rank) {
     return RANK_ABBR[rank] || rank || '';
+}
+
+const RANK_SORT_ORDER = [
+    'DDNS', 'DNS', 'AMPS', 'PNO', 'PMO', 'SNO', 'SMO', 'NO', 'MO',
+    'SSN', 'SSM', 'SN', 'SM', 'RM', 'EN', 'NAC', 'NAP', 'HO', 'PA', 'SPA',
+];
+
+function rankSortKey(rank) {
+    const abbr = getRankAbbr(rank);
+    const idx = RANK_SORT_ORDER.indexOf(abbr);
+    return idx === -1 ? 999 : idx;
 }
 
 export async function exportRosterPdf({ schedule, hospital, ward, department, staff, assignments }) {
@@ -106,9 +134,15 @@ export async function exportRosterPdf({ schedule, hospital, ward, department, st
         ...dayHeaders,
     ]];
 
-    // Staff rows
-    const regularStaff = staff.filter((s) => !s.isRotation);
-    const rotationStaff = staff.filter((s) => s.isRotation);
+    // Staff rows — sort by rank hierarchy (senior first), matching Ghana ward rosters
+    const sortedStaff = [...staff].sort((a, b) => {
+        const ra = rankSortKey(a.rank);
+        const rb = rankSortKey(b.rank);
+        if (ra !== rb) return ra - rb;
+        return `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`);
+    });
+    const regularStaff = sortedStaff.filter((s) => !s.isRotation);
+    const rotationStaff = sortedStaff.filter((s) => s.isRotation);
 
     function buildRows(staffList, startNo) {
         return staffList.map((s, idx) => {

@@ -3,27 +3,30 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import DepartmentTemplatePicker from '../../../../components/modals/DepartmentTemplatePicker';
+import { apiFetch } from '../../../../lib/api';
+import { useFirebaseAuth } from '../../../../components/FirebaseAuthProvider';
 
 export default function HospitalSetupPage() {
     const { id } = useParams();
     const router = useRouter();
+    const { role, status } = useFirebaseAuth();
     const [hospital, setHospital] = useState(null);
     const [loading, setLoading] = useState(true);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState('');
 
     useEffect(() => {
+        if (status === 'loading') return;
+        if (status === 'authenticated' && role === 'staff') {
+            router.replace(`/hospital/${id}`);
+            return;
+        }
+
         let active = true;
         (async () => {
             try {
-                const res = await fetch(`/api/hospitals/${id}`);
-                if (!res.ok) {
-                    router.push('/');
-                    return;
-                }
-                const data = await res.json();
+                const data = await apiFetch(`/api/hospitals/${id}`);
                 if (!active) return;
-                // If departments already exist, skip setup
                 if (data.departments && data.departments.length > 0) {
                     router.replace(`/hospital/${id}`);
                     return;
@@ -38,22 +41,16 @@ export default function HospitalSetupPage() {
         return () => {
             active = false;
         };
-    }, [id, router]);
+    }, [id, router, role, status]);
 
     const handleSave = async (departments) => {
         setBusy(true);
         setError('');
         try {
-            const res = await fetch(`/api/hospitals/${id}/departments`, {
+            await apiFetch(`/api/hospitals/${id}/departments`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ departments }),
             });
-            const data = await res.json();
-            if (!res.ok) {
-                setError(data.error || 'Failed to save departments');
-                return;
-            }
             router.push(`/hospital/${id}`);
         } catch (err) {
             setError(err.message || 'Network error');
@@ -62,7 +59,7 @@ export default function HospitalSetupPage() {
         }
     };
 
-    if (loading) {
+    if (loading || status === 'loading') {
         return (
             <div className="flex items-center justify-center min-h-screen bg-synclly-surface">
                 <div className="w-12 h-12 border-4 border-white border-t-synclly-coral rounded-full animate-spin"></div>

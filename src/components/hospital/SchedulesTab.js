@@ -17,7 +17,7 @@ const STATUS_BADGE = {
     archived: 'bg-slate-100 text-slate-500 border-slate-200',
 };
 
-export default function SchedulesTab({ hospital }) {
+export default function SchedulesTab({ hospital, canWrite = true }) {
     const router = useRouter();
     const [schedules, setSchedules] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -62,10 +62,12 @@ export default function SchedulesTab({ hospital }) {
                     <h2 className="text-2xl font-extrabold tracking-tight">{schedules.length} {schedules.length === 1 ? 'Schedule' : 'Schedules'}</h2>
                     <p className="text-synclly-muted font-medium text-sm mt-1">Ward roster cycles with auto-generation and validation.</p>
                 </div>
+                {canWrite && (
                 <button onClick={() => setShowCreate(true)} className="btn btn-primary text-xs py-2">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
                     New Schedule
                 </button>
+                )}
             </div>
 
             {loading ? (
@@ -76,11 +78,13 @@ export default function SchedulesTab({ hospital }) {
                 <div className="flex flex-col items-center justify-center py-32 text-center bg-white rounded-[40px] border border-slate-100 shadow-synclly">
                     <h3 className="text-xl font-extrabold text-synclly-deep">No schedules yet</h3>
                     <p className="text-synclly-muted text-sm font-medium max-w-xs mt-2 mb-6">
-                        Create your first ward roster cycle.
+                        {canWrite ? 'Create your first ward roster cycle.' : 'No schedules have been published yet.'}
                     </p>
+                    {canWrite && (
                     <button onClick={() => setShowCreate(true)} className="btn btn-primary text-xs py-2">
                         New Schedule
                     </button>
+                    )}
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -112,6 +116,7 @@ export default function SchedulesTab({ hospital }) {
                                 >
                                     Open
                                 </button>
+                                {canWrite && (
                                 <button
                                     onClick={() => handleDelete(s)}
                                     className="w-10 h-10 rounded-xl text-rose-400 hover:text-rose-500 hover:bg-rose-50 flex items-center justify-center"
@@ -122,6 +127,7 @@ export default function SchedulesTab({ hospital }) {
                                         <path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6" />
                                     </svg>
                                 </button>
+                                )}
                             </div>
                         </div>
                     ))}

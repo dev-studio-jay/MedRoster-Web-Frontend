@@ -1,29 +1,21 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { apiFetch } from '../../lib/api';
 import StaffFormModal from '../modals/StaffFormModal';
-
-function normalizeName(value) {
-    return String(value || '').trim().toLowerCase();
-}
-
-function getDisplayWards(departments, wards) {
-    return wards.filter((ward) => {
-        const department = departments.find((d) => String(d._id) === String(ward.departmentId));
-        if (!department) return true;
-
-        const departmentWards = wards.filter((w) => String(w.departmentId) === String(department._id));
-        const hasRealWards = departmentWards.some((w) => normalizeName(w.name) !== normalizeName(department.name));
-
-        return !hasRealWards || normalizeName(ward.name) !== normalizeName(department.name);
-    });
-}
+import ImportStaffModal from '../modals/ImportStaffModal';
+import { useFirebaseAuth } from '../FirebaseAuthProvider';
+import { getDisplayWards } from '../../lib/org-units';
 
 export default function StaffTab({ hospital, onChange, activeWardId = 'all', onWardChange }) {
+    const { role } = useFirebaseAuth();
+    const router = useRouter();
+    const canWrite = role !== 'staff';
     const [staff, setStaff] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showAdd, setShowAdd] = useState(false);
+    const [showImport, setShowImport] = useState(false);
     const [editStaff, setEditStaff] = useState(null);
     const [search, setSearch] = useState('');
 
@@ -74,8 +66,7 @@ export default function StaffTab({ hospital, onChange, activeWardId = 'all', onW
             if (!q) return true;
             return (
                 `${s.firstName} ${s.lastName}`.toLowerCase().includes(q) ||
-                (s.rank || '').toLowerCase().includes(q) ||
-                (s.employeeId || '').toLowerCase().includes(q)
+                (s.rank || '').toLowerCase().includes(q)
             );
         });
     }, [staff, activeWardId, search]);
@@ -93,19 +84,30 @@ export default function StaffTab({ hospital, onChange, activeWardId = 'all', onW
             <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
                 <div>
                     <h2 className="text-2xl font-extrabold tracking-tight">{staff.length} {staff.length === 1 ? 'Staff Member' : 'Staff Members'}</h2>
-                    <p className="text-synclly-muted font-medium text-sm mt-1">All clinical and support personnel.</p>
+                    <p className="text-synclly-muted font-medium text-sm mt-1">
+                        {canWrite
+                            ? 'Import a CSV, or an existing duty roster (Word, Excel, PDF, or a photo).'
+                            : 'All clinical and support personnel.'}
+                    </p>
                 </div>
                 <div className="flex gap-2">
                     <input
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        placeholder="Search by name, rank, ID..."
+                        placeholder="Search by name or rank..."
                         className="h-10 w-64 bg-white border border-slate-200 rounded-xl px-4 text-sm font-medium text-synclly-deep placeholder:text-slate-300 focus:outline-none focus:ring-4 focus:ring-synclly-coral/5 focus:border-synclly-coral"
                     />
-                    <button onClick={() => setShowAdd(true)} className="btn btn-primary text-xs py-2">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
-                        Add Staff
-                    </button>
+                    {canWrite && (
+                        <>
+                            <button onClick={() => setShowImport(true)} className="btn btn-secondary text-xs py-2">
+                                Import roster
+                            </button>
+                            <button onClick={() => setShowAdd(true)} className="btn btn-primary text-xs py-2">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+                                Add Staff
+                            </button>
+                        </>
+                    )}
                 </div>
             </div>
 
@@ -147,9 +149,11 @@ export default function StaffTab({ hospital, onChange, activeWardId = 'all', onW
                 <div className="flex flex-col items-center justify-center py-32 text-center bg-white rounded-[40px] border border-slate-100 shadow-synclly">
                     <h3 className="text-xl font-extrabold text-synclly-deep">No staff yet</h3>
                     <p className="text-synclly-muted text-sm font-medium max-w-xs mt-2 mb-6">
-                        {staff.length === 0 ? 'Start by adding your first staff member.' : 'No staff match your filter.'}
+                        {staff.length === 0
+                            ? (canWrite ? 'Start by adding your first staff member.' : 'No staff have been added yet.')
+                            : 'No staff match your filter.'}
                     </p>
-                    {staff.length === 0 && (
+                    {staff.length === 0 && canWrite && (
                         <button onClick={() => setShowAdd(true)} className="btn btn-primary text-xs py-2">Add Staff</button>
                     )}
                 </div>
@@ -193,14 +197,9 @@ export default function StaffTab({ hospital, onChange, activeWardId = 'all', onW
                                 <div className="space-y-1 text-xs text-synclly-muted font-medium border-t border-slate-50 pt-3">
                                     <div className="flex justify-between"><span>Dept</span><span className="font-bold text-synclly-deep truncate ml-2">{dept?.name || '-'}</span></div>
                                     <div className="flex justify-between"><span>Ward</span><span className="font-bold text-synclly-deep truncate ml-2">{ward?.name || '-'}</span></div>
-                                    {s.employeeId && (
-                                        <div className="flex justify-between"><span>ID</span><span className="font-bold text-synclly-deep">{s.employeeId}</span></div>
-                                    )}
-                                    {s.licenseType && s.licenseNumber && (
-                                        <div className="flex justify-between"><span>{s.licenseType}</span><span className="font-bold text-synclly-deep">{s.licenseNumber}</span></div>
-                                    )}
                                 </div>
 
+                                {canWrite && (
                                 <div className="flex gap-2 mt-4 pt-4 border-t border-slate-50">
                                     <button
                                         onClick={() => setEditStaff(s)}
@@ -219,6 +218,7 @@ export default function StaffTab({ hospital, onChange, activeWardId = 'all', onW
                                         </svg>
                                     </button>
                                 </div>
+                                )}
                             </div>
                         );
                     })}
@@ -238,6 +238,23 @@ export default function StaffTab({ hospital, onChange, activeWardId = 'all', onW
                         setEditStaff(null);
                     }}
                     onSaved={handleSaved}
+                />
+            )}
+
+            {showImport && (
+                <ImportStaffModal
+                    mode="hospital"
+                    hospitalId={hospital._id}
+                    departments={departments}
+                    wards={displayWards}
+                    onClose={() => setShowImport(false)}
+                    onImported={async (data) => {
+                        setShowImport(false);
+                        await refresh();
+                        if (data?.scheduleId) {
+                            router.push(`/hospital/${hospital._id}/schedule/${data.scheduleId}`);
+                        }
+                    }}
                 />
             )}
         </div>

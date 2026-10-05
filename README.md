@@ -1,5 +1,7 @@
 # MedRoster — Web Frontend
 
+**Blaze Studios** · MedRoster web client
+
 Hospital workforce management for Ghana Health Service facilities. Roster nurses, midwives, doctors, and allied staff with leave, role, and supervisory rules built in.
 
 This is the **Next.js web client**. It authenticates with Firebase Auth and talks to the [MedRoster API](https://github.com/blaze308/medroster-backend) for all data.
@@ -57,7 +59,7 @@ This is the **Next.js web client**. It authenticates with Firebase Auth and talk
 
 1. **Sign in / Register** (`/auth/signin`, `/auth/register`) — create an admin account and hospital, or sign in.
 2. **Setup** (`/hospital/[id]/setup`) — pick Ghana-standard department templates.
-3. **Dashboard** (`/hospital/[id]`) — Departments, Staff, and Schedules tabs.
+3. **Dashboard** (`/hospital/[id]`) — Departments, Staff, and Schedules tabs. Staff **Import roster** accepts a CSV (no calendar yet) or an existing duty roster: Word, Excel, PDF, or a photo. Guest and individual accounts stay CSV-only.
 4. **Schedule view** (`/hospital/[id]/schedule/[schedId]`) — calendar grid, assign shifts, auto-generate, validate, export PDF.
 
 ---

@@ -8,6 +8,7 @@ import ShiftPicker from './ShiftPicker';
 import ValidationPanel from './ValidationPanel';
 import SettingsModal from './SettingsModal';
 import { exportRosterPdf } from '../../lib/pdf-export';
+import { useFirebaseAuth } from '../FirebaseAuthProvider';
 
 function formatRange(start, end) {
     const s = new Date(start);
@@ -17,6 +18,8 @@ function formatRange(start, end) {
 
 export default function SchedulePage({ hospitalId, scheduleId }) {
     const router = useRouter();
+    const { role } = useFirebaseAuth();
+    const canWrite = role !== 'staff';
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [picker, setPicker] = useState(null); // { staff, date, currentShiftTypeId }
@@ -71,7 +74,7 @@ export default function SchedulePage({ hospitalId, scheduleId }) {
     };
 
     const handleCellClick = (staff, date) => {
-        if (!data) return;
+        if (!canWrite || !data) return;
         const existing = data.assignments.find(
             (a) => String(a.staffId) === String(staff._id) && new Date(a.date).toISOString().split('T')[0] === date.toISOString().split('T')[0]
         );
@@ -186,6 +189,8 @@ export default function SchedulePage({ hospitalId, scheduleId }) {
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2">
+                        {canWrite && (
+                        <>
                         <label className="h-10 px-4 rounded-xl bg-white border border-slate-200 text-ghs-muted text-xs font-bold flex items-center gap-2">
                             <input
                                 type="checkbox"
@@ -209,6 +214,8 @@ export default function SchedulePage({ hospitalId, scheduleId }) {
                                 <>Auto-Generate</>
                             )}
                         </button>
+                        </>
+                        )}
                         <button
                             onClick={handleExportPdf}
                             disabled={exporting}
@@ -224,6 +231,8 @@ export default function SchedulePage({ hospitalId, scheduleId }) {
                             )}
                             Export PDF
                         </button>
+                        {canWrite && (
+                        <>
                         <button
                             onClick={handleClearAll}
                             className="h-10 px-4 rounded-xl bg-white border border-slate-200 text-ghs-muted text-xs font-bold hover:bg-slate-50"
@@ -241,6 +250,8 @@ export default function SchedulePage({ hospitalId, scheduleId }) {
                                 <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
                             </svg>
                         </button>
+                        </>
+                        )}
                     </div>
                 </div>
                 <div className="px-6 md:px-10 pb-3">
@@ -263,7 +274,7 @@ export default function SchedulePage({ hospitalId, scheduleId }) {
 
             <ValidationPanel hospitalId={hospitalId} scheduleId={scheduleId} dataVersion={data.assignments.length} />
 
-            {picker && (
+            {canWrite && picker && (
                 <ShiftPicker
                     staff={picker.staff}
                     date={picker.date}
@@ -274,7 +285,7 @@ export default function SchedulePage({ hospitalId, scheduleId }) {
                 />
             )}
 
-            {showSettings && (
+            {canWrite && showSettings && (
                 <SettingsModal
                     settings={hospital.settings}
                     onSave={handleSettingsSaved}
