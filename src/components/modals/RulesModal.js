@@ -23,6 +23,7 @@ const RULE_GROUPS = [
         items: [
             'Each ward can have one incharge and one assistant.',
             'Incharge and assistant work Monday to Friday, morning shifts only.',
+            'At least one senior or in-charge on Morning each day — not afternoon or night.',
             'No night shift and maternity restrictions block night duty.',
             'Only morning, only afternoon, and weekday-only switches are hard rules.',
         ],

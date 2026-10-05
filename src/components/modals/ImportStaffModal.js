@@ -124,7 +124,6 @@ function HospitalImportModal({
     const [rules, setRules] = useState({
         leaveStayOff: true,
         offAndHolidayStayOff: true,
-        requireSeniorOnDuty: true,
         keepGridAsIs: true,
     });
 
@@ -244,7 +243,7 @@ function HospitalImportModal({
         chooser: 'Start from a spreadsheet, or upload a duty roster you already have.',
         upload: path === 'csv' ? 'Download the template if you need it, then upload your CSV.' : 'Upload a Word, Excel, PDF, or photo of the roster.',
         review: 'Tick who to keep. Nothing is saved yet.',
-        rules: 'Say which rules to apply when we save.',
+        rules: 'How should we read the file? Core roster rules stay on.',
         done: 'People are on this ward. Open the roster when you want to edit shifts.',
     }[step];
 
@@ -337,7 +336,6 @@ function HospitalImportModal({
                         {[
                             { key: 'leaveStayOff', label: 'People on leave stay off', hint: 'Do not put them on shifts for those days.' },
                             { key: 'offAndHolidayStayOff', label: 'Off and holiday stay off', hint: 'O and H cells are not shifts.' },
-                            { key: 'requireSeniorOnDuty', label: 'Need a senior on duty each day', hint: 'Turn this off if this unit has no senior rank.' },
                             { key: 'keepGridAsIs', label: 'Keep the uploaded grid', hint: 'Do not auto-generate over what we just read.' },
                         ].map((item) => (
                             <label key={item.key} className="flex items-start gap-3 p-3 rounded-2xl border border-slate-100 bg-ghs-surface">
@@ -353,6 +351,9 @@ function HospitalImportModal({
                                 </span>
                             </label>
                         ))}
+                        <p className="text-[11px] font-medium text-ghs-muted px-1">
+                            Morning senior cover is always checked on the calendar.
+                        </p>
                     </div>
                 )}
 

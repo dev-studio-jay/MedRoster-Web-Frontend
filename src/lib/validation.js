@@ -105,20 +105,21 @@ export function validateWorkRestriction(staff, date, shiftType, schedule) {
 
 // --- Aggregate checks (across a schedule) ------------------------------------
 
-// Coverage: at least N senior staff assigned per day.
+// Coverage: at least N senior or in-charge staff on Morning that day.
 export function validateSupervisoryCoverage({ date, assignments, staffById, settings }) {
-    const minSeniorStaff = settings?.minSeniorStaffPerDay ?? 1;
+    const minSeniorStaff = Math.max(1, settings?.minSeniorStaffPerDay ?? 1);
 
     const dateStr = dateKey(date);
-    const dayAssignments = assignments.filter(
-        (a) => dateKey(a.date) === dateStr
-    );
+    const morningAssignments = assignments.filter((a) => {
+        if (dateKey(a.date) !== dateStr) return false;
+        return shiftName(a.shiftType) === 'Morning';
+    });
 
-    const seniorCount = dayAssignments.filter((a) => {
+    const seniorCount = morningAssignments.filter((a) => {
         const staff = staffById.get(String(a.staffId));
         if (!staff) return false;
         const type = resolveStaffType(staff);
-        return type === 'senior' || type === 'pno';
+        return type === 'senior' || type === 'pno' || staff.wardRole === 'incharge';
     }).length;
 
     if (seniorCount < minSeniorStaff) {
@@ -129,7 +130,7 @@ export function validateSupervisoryCoverage({ date, assignments, staffById, sett
         });
         return {
             valid: false,
-            error: `${dateFormatted} needs at least ${minSeniorStaff} senior staff (currently ${seniorCount})`,
+            error: `${dateFormatted} morning has no senior / in-charge`,
             missingCount: minSeniorStaff - seniorCount,
         };
     }
@@ -233,18 +234,14 @@ export function validateAssignment({ staff, date, shiftType, context }) {
     const assignments = context?.assignments || [];
     const schedule = context?.schedule;
 
-    if (rules.enforceLeaveConflicts !== false) {
-        const r = validateLeaveConflict(staff, date);
-        if (!r.valid) errors.push(r.error);
-    }
+    const leave = validateLeaveConflict(staff, date);
+    if (!leave.valid) errors.push(leave.error);
 
-    if (rules.enforceRoleShiftRestrictions !== false) {
-        const r = validateRoleShiftCompatibility(staff, shiftType);
-        if (!r.valid) errors.push(r.error);
+    const role = validateRoleShiftCompatibility(staff, shiftType);
+    if (!role.valid) errors.push(role.error);
 
-        const restriction = validateWorkRestriction(staff, date, shiftType, schedule);
-        if (!restriction.valid) errors.push(restriction.error);
-    }
+    const restriction = validateWorkRestriction(staff, date, shiftType, schedule);
+    if (!restriction.valid) errors.push(restriction.error);
 
     if (rules.warnConsecutiveShifts !== false) {
         const r = validateConsecutiveShifts({
@@ -273,7 +270,6 @@ export function validateFullSchedule({ staff, assignments, settings, schedule })
     const warnings = [];
     const dateViolations = {};
 
-    const rules = settings?.validationRules || {};
     const staffById = new Map((staff || []).map((s) => [String(s._id || s.id), s]));
 
     const dates = [
@@ -283,18 +279,16 @@ export function validateFullSchedule({ staff, assignments, settings, schedule })
     dates.forEach((dateStr) => {
         const date = new Date(dateStr);
 
-        if (rules.enforceSupervisoryCoverage !== false) {
-            const r = validateSupervisoryCoverage({ date, assignments, staffById, settings });
-            if (!r.valid) {
-                errors.push({
-                    type: 'supervisory_coverage',
-                    date: dateStr,
-                    message: r.error,
-                    severity: 'error',
-                });
-                if (!dateViolations[dateStr]) dateViolations[dateStr] = [];
-                dateViolations[dateStr].push('missing_supervisor');
-            }
+        const r = validateSupervisoryCoverage({ date, assignments, staffById, settings });
+        if (!r.valid) {
+            errors.push({
+                type: 'supervisory_coverage',
+                date: dateStr,
+                message: r.error,
+                severity: 'error',
+            });
+            if (!dateViolations[dateStr]) dateViolations[dateStr] = [];
+            dateViolations[dateStr].push('missing_supervisor');
         }
 
         const dayAssignments = assignments.filter(
@@ -305,7 +299,7 @@ export function validateFullSchedule({ staff, assignments, settings, schedule })
             const staffMember = staffById.get(String(a.staffId));
             if (!staffMember) return;
 
-            if (rules.enforceLeaveConflicts !== false && isStaffOnLeave(staffMember, date)) {
+            if (isStaffOnLeave(staffMember, date)) {
                 errors.push({
                     type: 'leave_conflict',
                     date: dateStr,
@@ -316,15 +310,15 @@ export function validateFullSchedule({ staff, assignments, settings, schedule })
                 });
             }
 
-            if (rules.enforceRoleShiftRestrictions !== false && a.shiftType) {
-                const r = validateRoleShiftCompatibility(staffMember, a.shiftType);
-                if (!r.valid) {
+            if (a.shiftType) {
+                const roleCheck = validateRoleShiftCompatibility(staffMember, a.shiftType);
+                if (!roleCheck.valid) {
                     errors.push({
                         type: 'role_shift_incompatible',
                         date: dateStr,
                         staffId: String(staffMember._id || staffMember.id),
                         staffName: staffDisplayName(staffMember),
-                        message: r.error,
+                        message: roleCheck.error,
                         severity: 'error',
                     });
                 }

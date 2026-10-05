@@ -21,7 +21,7 @@ function groupIssues(items = []) {
             title = item.staffName || 'Someone';
         } else if (item.type === 'supervisory_coverage') {
             key = 'coverage';
-            title = 'Days with no senior on duty';
+            title = 'Days with no senior / in-charge on Morning';
         } else if (item.type === 'max_hours' || item.type === 'off_day_target') {
             key = `${item.type}:${item.staffId || item.message}`;
             title = item.staffName ? `${item.staffName} — ${item.message}` : item.message;
@@ -39,7 +39,7 @@ function groupIssues(items = []) {
             group.title = group.message.replace(/ is on leave$/, '') + ` — ${group.count} shift${group.count === 1 ? '' : 's'} while on leave`;
         }
         if (group.type === 'supervisory_coverage') {
-            group.title = `${group.count} day${group.count === 1 ? '' : 's'} with no senior on duty`;
+            group.title = `${group.count} day${group.count === 1 ? '' : 's'} with no senior / in-charge on Morning`;
             group.detail = group.dates
                 .map((d) => new Date(d).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }))
                 .join(', ');

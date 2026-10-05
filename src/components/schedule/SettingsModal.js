@@ -9,9 +9,6 @@ export default function SettingsModal({ settings, onSave, onClose }) {
         minSeniorStaffPerDay: settings?.minSeniorStaffPerDay ?? 1,
         maxHoursPerWeek: settings?.maxHoursPerWeek ?? 48,
         validationRules: {
-            enforceLeaveConflicts: settings?.validationRules?.enforceLeaveConflicts ?? true,
-            enforceRoleShiftRestrictions: settings?.validationRules?.enforceRoleShiftRestrictions ?? true,
-            enforceSupervisoryCoverage: settings?.validationRules?.enforceSupervisoryCoverage ?? true,
             warnConsecutiveShifts: settings?.validationRules?.warnConsecutiveShifts ?? true,
         },
     }));
@@ -23,7 +20,16 @@ export default function SettingsModal({ settings, onSave, onClose }) {
     const handleSave = async () => {
         setBusy(true);
         try {
-            await onSave(form);
+            await onSave({
+                ...form,
+                minSeniorStaffPerDay: Math.max(1, form.minSeniorStaffPerDay || 1),
+                validationRules: {
+                    enforceLeaveConflicts: true,
+                    enforceRoleShiftRestrictions: true,
+                    enforceSupervisoryCoverage: true,
+                    warnConsecutiveShifts: form.validationRules.warnConsecutiveShifts !== false,
+                },
+            });
         } finally {
             setBusy(false);
         }
@@ -35,7 +41,7 @@ export default function SettingsModal({ settings, onSave, onClose }) {
                 <div className="px-10 pt-10 pb-6 border-b border-slate-100">
                     <h2 className="text-2xl font-extrabold text-synclly-deep tracking-tight">Schedule Settings</h2>
                     <p className="text-synclly-muted font-medium text-sm mt-1">
-                        Hospital-wide validation rules and scheduling constraints.
+                        Caps and hours. Leave, role, and morning senior cover stay on.
                     </p>
                 </div>
 
@@ -58,11 +64,11 @@ export default function SettingsModal({ settings, onSave, onClose }) {
                                 onChange={(v) => setForm((f) => ({ ...f, maxConsecutiveNights: v }))}
                             />
                             <NumberField
-                                label="Min senior staff per day"
+                                label="Min seniors on Morning"
                                 value={form.minSeniorStaffPerDay}
-                                min={0}
+                                min={1}
                                 max={20}
-                                onChange={(v) => setForm((f) => ({ ...f, minSeniorStaffPerDay: v }))}
+                                onChange={(v) => setForm((f) => ({ ...f, minSeniorStaffPerDay: Math.max(1, v) }))}
                             />
                             <NumberField
                                 label="Max hours per week"
@@ -75,26 +81,8 @@ export default function SettingsModal({ settings, onSave, onClose }) {
                     </section>
 
                     <section>
-                        <h3 className="text-sm font-extrabold text-synclly-deep mb-4">Validation Rules</h3>
+                        <h3 className="text-sm font-extrabold text-synclly-deep mb-4">Optional warning</h3>
                         <div className="space-y-2">
-                            <RuleToggle
-                                label="Block leave conflicts"
-                                description="Prevent assigning staff while on leave."
-                                value={form.validationRules.enforceLeaveConflicts}
-                                onChange={(v) => updateRule('enforceLeaveConflicts', v)}
-                            />
-                            <RuleToggle
-                                label="Block senior night shifts"
-                                description="Senior staff and PNOs cannot be scheduled for nights."
-                                value={form.validationRules.enforceRoleShiftRestrictions}
-                                onChange={(v) => updateRule('enforceRoleShiftRestrictions', v)}
-                            />
-                            <RuleToggle
-                                label="Require supervisor coverage"
-                                description="Flag days that don't meet the minimum senior count."
-                                value={form.validationRules.enforceSupervisoryCoverage}
-                                onChange={(v) => updateRule('enforceSupervisoryCoverage', v)}
-                            />
                             <RuleToggle
                                 label="Warn on consecutive shifts"
                                 description="Show a warning when a staff exceeds consecutive day/night caps."
