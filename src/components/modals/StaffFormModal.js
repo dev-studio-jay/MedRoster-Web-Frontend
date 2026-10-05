@@ -7,7 +7,7 @@ import {
     RANKS_BY_CATEGORY,
     QUALIFICATIONS,
     EMPLOYMENT_STATUSES,
-    GENDERS,
+    WARD_ROLES,
     MIN_ANNUAL_LEAVE_DAYS,
 } from '../../lib/ghana-data';
 import { LeaveManagerPanel } from './LeaveModal';
@@ -23,9 +23,7 @@ function emptyStaff(departmentId) {
     return {
         firstName: '',
         lastName: '',
-        gender: '',
         phone: '',
-        email: '',
         category: 'Nurse',
         rank: '',
         qualification: '',
@@ -112,7 +110,11 @@ export default function StaffFormModal({ hospitalId, departments, wards = [], st
         }
     };
 
-    const ranks = useMemo(() => RANKS_BY_CATEGORY[form.category] || RANKS_BY_CATEGORY.Other, [form.category]);
+    const ranks = useMemo(() => {
+        const list = RANKS_BY_CATEGORY[form.category] || RANKS_BY_CATEGORY.Other;
+        if (form.rank && !list.includes(form.rank)) return [form.rank, ...list];
+        return list;
+    }, [form.category, form.rank]);
     const departmentWards = useMemo(
         () => wards.filter((ward) => String(ward.departmentId) === String(form.departmentId)),
         [wards, form.departmentId]
@@ -155,9 +157,7 @@ export default function StaffFormModal({ hospitalId, departments, wards = [], st
             const payload = {
                 firstName: form.firstName,
                 lastName: form.lastName,
-                gender: form.gender,
                 phone: form.phone,
-                email: form.email,
                 category: form.category,
                 rank: form.rank,
                 qualification: form.qualification,
@@ -224,21 +224,19 @@ export default function StaffFormModal({ hospitalId, departments, wards = [], st
                                 <Field label="Last Name" required>
                                     <Input value={form.lastName} onChange={(v) => update('lastName', v)} placeholder="Mensah" />
                                 </Field>
-                                <Field label="Gender">
-                                    <Select value={form.gender} onChange={(v) => update('gender', v)} options={['', ...GENDERS]} placeholder="Select" />
-                                </Field>
                                 <Field label="Phone">
                                     <Input value={form.phone} onChange={(v) => update('phone', v)} placeholder="+233 24 000 0000" />
-                                </Field>
-                                <Field label="Email" full>
-                                    <Input type="email" value={form.email} onChange={(v) => update('email', v)} placeholder="staff@example.com" />
                                 </Field>
                                 <Field label="Category">
                                     <Select
                                         value={form.category}
                                         onChange={(v) => {
-                                            update('category', v);
-                                            update('rank', '');
+                                            const nextRanks = RANKS_BY_CATEGORY[v] || RANKS_BY_CATEGORY.Other;
+                                            setForm((f) => ({
+                                                ...f,
+                                                category: v,
+                                                rank: nextRanks.includes(f.rank) ? f.rank : '',
+                                            }));
                                         }}
                                         options={STAFF_CATEGORIES}
                                     />
@@ -291,11 +289,7 @@ export default function StaffFormModal({ hospitalId, departments, wards = [], st
                                     <Select
                                         value={form.wardRole}
                                         onChange={(v) => update('wardRole', v)}
-                                        options={[
-                                            { value: 'regular', label: 'Regular staff' },
-                                            { value: 'incharge', label: 'Incharge' },
-                                            { value: 'assistant', label: 'Assistant' },
-                                        ]}
+                                        options={WARD_ROLES}
                                     />
                                 </Field>
                                 <div className="col-span-2 grid grid-cols-1 md:grid-cols-2 gap-3">

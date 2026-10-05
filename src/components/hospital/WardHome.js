@@ -36,6 +36,7 @@ export default function WardHome({ hospital, ward, department, onChange }) {
     const [showImport, setShowImport] = useState(false);
     const [editStaff, setEditStaff] = useState(null);
     const [search, setSearch] = useState('');
+    const [staffView, setStaffView] = useState('grid');
     const [error, setError] = useState('');
 
     const departments = useMemo(() => hospital.departments || [], [hospital.departments]);
@@ -184,13 +185,42 @@ export default function WardHome({ hospital, ward, department, onChange }) {
                 <div className="bg-rose-50 border border-rose-100 rounded-2xl p-3 text-xs font-bold text-rose-600">{error}</div>
             )}
 
-            <div className="flex gap-2">
+            <div className="flex flex-wrap items-center gap-2">
                 <input
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder="Search by name or rank..."
                     className="h-10 w-64 bg-white border border-slate-200 rounded-xl px-4 text-sm font-medium text-synclly-deep placeholder:text-slate-300 focus:outline-none focus:ring-4 focus:ring-synclly-coral/5 focus:border-synclly-coral"
                 />
+                {wardStaff.length > 0 && (
+                    <div className="flex items-center gap-0.5 h-10 p-1 rounded-full bg-white border border-slate-200 shadow-sm">
+                        <button
+                            type="button"
+                            onClick={() => setStaffView('list')}
+                            aria-label="List view"
+                            className={`w-8 h-8 rounded-full flex items-center justify-center ${staffView === 'list' ? 'bg-[#006B3F] text-white' : 'text-slate-400 hover:text-slate-600'}`}
+                        >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                                <line x1="4" y1="7" x2="20" y2="7" />
+                                <line x1="4" y1="12" x2="20" y2="12" />
+                                <line x1="4" y1="17" x2="20" y2="17" />
+                            </svg>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setStaffView('grid')}
+                            aria-label="Grid view"
+                            className={`w-8 h-8 rounded-full flex items-center justify-center ${staffView === 'grid' ? 'bg-[#006B3F] text-white' : 'text-slate-400 hover:text-slate-600'}`}
+                        >
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+                                <rect x="3" y="3" width="8" height="8" rx="1.5" />
+                                <rect x="13" y="3" width="8" height="8" rx="1.5" />
+                                <rect x="3" y="13" width="8" height="8" rx="1.5" />
+                                <rect x="13" y="13" width="8" height="8" rx="1.5" />
+                            </svg>
+                        </button>
+                    </div>
+                )}
             </div>
 
             {loading ? (
@@ -199,7 +229,7 @@ export default function WardHome({ hospital, ward, department, onChange }) {
                 </div>
             ) : wardStaff.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-24 text-center bg-white rounded-[40px] border border-slate-100 shadow-synclly">
-                    <h3 className="text-xl font-extrabold text-synclly-deep">No one on this ward yet</h3>
+                    <h3 className="text-xl font-extrabold text-synclly-deep">No staff on this ward yet</h3>
                     <p className="text-synclly-muted text-sm font-medium max-w-xs mt-2 mb-6">
                         {canWrite
                             ? 'Import a duty roster or add staff, then open the calendar to edit shifts.'
@@ -212,59 +242,29 @@ export default function WardHome({ hospital, ward, department, onChange }) {
                         </div>
                     )}
                 </div>
+            ) : staffView === 'list' ? (
+                <div className="bg-white rounded-[24px] border border-slate-50 overflow-hidden divide-y divide-slate-50">
+                    {wardStaff.map((s) => (
+                        <StaffListRow
+                            key={s._id}
+                            staff={s}
+                            canWrite={canWrite}
+                            onEdit={() => setEditStaff(s)}
+                            onDelete={() => handleDelete(s)}
+                        />
+                    ))}
+                </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                    {wardStaff.map((s) => {
-                        const initials = `${s.firstName?.[0] || ''}${s.lastName?.[0] || ''}`.toUpperCase();
-                        const badge =
-                            s.staffType === 'pno'
-                                ? { label: 'PNO+', cls: 'bg-purple-50 text-purple-600 border-purple-100' }
-                                : s.staffType === 'senior'
-                                ? { label: 'SENIOR', cls: 'bg-blue-50 text-blue-600 border-blue-100' }
-                                : null;
-                        return (
-                            <div key={s._id} className="group bg-white rounded-[24px] border border-slate-50 p-6 transition-all hover:shadow-synclly hover:-translate-y-0.5">
-                                <div className="flex items-start justify-between gap-3 mb-4">
-                                    <div className="flex items-center gap-3 min-w-0">
-                                        <div className="w-12 h-12 rounded-2xl bg-synclly-coral/10 text-synclly-coral flex items-center justify-center font-extrabold text-sm shrink-0">
-                                            {initials}
-                                        </div>
-                                        <div className="min-w-0">
-                                            <h3 className="text-base font-extrabold text-synclly-deep truncate">{s.firstName} {s.lastName}</h3>
-                                            <p className="text-[11px] font-bold text-synclly-muted uppercase tracking-wider truncate">
-                                                {s.rank || s.category || 'Staff'}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    {badge && (
-                                        <span className={`text-[9px] font-extrabold uppercase tracking-widest px-2 py-1 rounded-md border ${badge.cls}`}>
-                                            {badge.label}
-                                        </span>
-                                    )}
-                                </div>
-                                {canWrite && (
-                                    <div className="flex gap-2 pt-4 border-t border-slate-50">
-                                        <button
-                                            onClick={() => setEditStaff(s)}
-                                            className="flex-1 h-9 rounded-xl bg-synclly-surface text-synclly-deep text-[11px] font-bold hover:bg-slate-100"
-                                        >
-                                            Edit
-                                        </button>
-                                        <button
-                                            onClick={() => handleDelete(s)}
-                                            className="w-9 h-9 rounded-xl text-rose-400 hover:text-rose-500 hover:bg-rose-50 flex items-center justify-center"
-                                            title="Remove"
-                                        >
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                                <polyline points="3 6 5 6 21 6" />
-                                                <path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6" />
-                                            </svg>
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-                        );
-                    })}
+                    {wardStaff.map((s) => (
+                        <StaffGridCard
+                            key={s._id}
+                            staff={s}
+                            canWrite={canWrite}
+                            onEdit={() => setEditStaff(s)}
+                            onDelete={() => handleDelete(s)}
+                        />
+                    ))}
                 </div>
             )}
 
@@ -313,3 +313,95 @@ export default function WardHome({ hospital, ward, department, onChange }) {
         </div>
     );
 }
+
+function staffBadge(staff) {
+    if (staff.staffType === 'pno') return { label: 'PNO+', cls: 'bg-purple-50 text-purple-600 border-purple-100' };
+    if (staff.staffType === 'senior') return { label: 'SENIOR', cls: 'bg-blue-50 text-blue-600 border-blue-100' };
+    return null;
+}
+
+function StaffIdentity({ staff, compact = false }) {
+    const initials = `${staff.firstName?.[0] || ''}${staff.lastName?.[0] || ''}`.toUpperCase();
+    const badge = staffBadge(staff);
+    return (
+        <div className="flex items-center gap-3 min-w-0">
+            <div className={`${compact ? 'w-10 h-10 text-xs' : 'w-12 h-12 text-sm'} rounded-2xl bg-synclly-coral/10 text-synclly-coral flex items-center justify-center font-extrabold shrink-0`}>
+                {initials}
+            </div>
+            <div className="min-w-0">
+                <h3 className={`${compact ? 'text-sm' : 'text-base'} font-extrabold text-synclly-deep truncate`}>
+                    {staff.firstName} {staff.lastName}
+                </h3>
+                <p className="text-[11px] font-bold text-synclly-muted uppercase tracking-wider truncate">
+                    {staff.rank || staff.category || 'Staff'}
+                </p>
+            </div>
+            {badge && (
+                <span className={`text-[9px] font-extrabold uppercase tracking-widest px-2 py-1 rounded-md border shrink-0 ${badge.cls}`}>
+                    {badge.label}
+                </span>
+            )}
+        </div>
+    );
+}
+
+function StaffGridCard({ staff, canWrite, onEdit, onDelete }) {
+    return (
+        <div className="group bg-white rounded-[24px] border border-slate-50 p-6 transition-all hover:shadow-synclly hover:-translate-y-0.5">
+            <div className="flex items-start justify-between gap-3 mb-4">
+                <StaffIdentity staff={staff} />
+            </div>
+            {canWrite && (
+                <div className="flex gap-2 pt-4 border-t border-slate-50">
+                    <button
+                        onClick={onEdit}
+                        className="flex-1 h-9 rounded-xl bg-synclly-surface text-synclly-deep text-[11px] font-bold hover:bg-slate-100"
+                    >
+                        Edit
+                    </button>
+                    <button
+                        onClick={onDelete}
+                        className="w-9 h-9 rounded-xl text-rose-400 hover:text-rose-500 hover:bg-rose-50 flex items-center justify-center"
+                        title="Remove"
+                    >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                            <polyline points="3 6 5 6 21 6" />
+                            <path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6" />
+                        </svg>
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function StaffListRow({ staff, canWrite, onEdit, onDelete }) {
+    return (
+        <div className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50">
+            <div className="flex-1 min-w-0">
+                <StaffIdentity staff={staff} compact />
+            </div>
+            {canWrite && (
+                <div className="flex gap-1 shrink-0">
+                    <button
+                        onClick={onEdit}
+                        className="h-9 px-3 rounded-xl bg-synclly-surface text-synclly-deep text-[11px] font-bold hover:bg-slate-100"
+                    >
+                        Edit
+                    </button>
+                    <button
+                        onClick={onDelete}
+                        className="w-9 h-9 rounded-xl text-rose-400 hover:text-rose-500 hover:bg-rose-50 flex items-center justify-center"
+                        title="Remove"
+                    >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                            <polyline points="3 6 5 6 21 6" />
+                            <path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6" />
+                        </svg>
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+}
+

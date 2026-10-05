@@ -85,47 +85,68 @@ export const WARD_PRESETS = [
     'Burns Ward',
 ];
 
-// Staff categories — high-level professional grouping
+// Staff categories — NMC, MDC, Pharmacy Council, and AHPC cadres
 export const STAFF_CATEGORIES = [
     'Nurse',
     'Midwife',
     'Nurse Assistant',
+    'Community Health Nurse',
+    'Mental Health Nurse',
     'Doctor',
+    'Physician Assistant',
     'Pharmacist',
     'Lab Technician',
+    'Biomedical Scientist',
     'Radiographer',
     'Physiotherapist',
     'Anaesthetist',
     'Dietitian',
-    'Biomedical Scientist',
     'Health Records Officer',
     'Other',
 ];
 
-// Ghana Health Service nursing/midwifery rank hierarchy (junior \u2192 senior)
-// Source: Nursing and Midwifery Council of Ghana, GHS pay structure
-export const NURSING_RANKS = [
-    'Nurse Assistant Clinical',
-    'Nurse Assistant Preventive',
-    'Enrolled Nurse',
-    'Registered Midwife',
+// GHS / NMC registered general nurse ladder (junior → senior)
+export const NURSE_RANKS = [
     'Staff Nurse',
-    'Staff Midwife',
     'Senior Staff Nurse',
-    'Senior Staff Midwife',
     'Nursing Officer',
-    'Midwifery Officer',
     'Senior Nursing Officer',
-    'Senior Midwifery Officer',
     'Principal Nursing Officer',
-    'Principal Midwifery Officer',
-    'Assistant Midwifery Principal',
     'Deputy Chief Nursing Officer',
-    'Deputy Chief Midwifery Officer',
     'Deputy Director of Nursing Services',
     'Director of Nursing Services',
     'Regional Chief Nursing & Midwifery Officer',
     'Director, Nursing & Midwifery Service',
+];
+
+// GHS / NMC midwifery ladder
+export const MIDWIFE_RANKS = [
+    'Midwifery Aid',
+    'Registered Midwife',
+    'Staff Midwife',
+    'Senior Staff Midwife',
+    'Midwifery Officer',
+    'Senior Midwifery Officer',
+    'Principal Midwifery Officer',
+    'Assistant Midwifery Principal',
+    'Deputy Chief Midwifery Officer',
+];
+
+// Auxiliary / enrolled (NMC AIN programmes: NAC, NAP, enrolled)
+export const NURSE_ASSISTANT_RANKS = [
+    'Nurse Assistant Clinical',
+    'Nurse Assistant Preventive',
+    'Enrolled Nurse',
+    'Senior Enrolled Nurse',
+    'Principal Enrolled Nurse',
+];
+
+export const COMMUNITY_HEALTH_RANKS = [
+    'Community Health Nurse',
+    'Senior Community Health Nurse',
+    'Community Health Nursing Officer',
+    'Senior Community Health Nursing Officer',
+    'Principal Community Health Nursing Officer',
 ];
 
 // Medical & Dental Council ranks for doctors
@@ -139,38 +160,71 @@ export const MEDICAL_RANKS = [
     'Senior Consultant',
 ];
 
-// Ranks for allied health and other categories — flexible string list
-export const ALLIED_RANKS = [
-    'Junior',
-    'Officer',
-    'Senior Officer',
-    'Principal Officer',
-    'Chief Officer',
-    'Specialist',
-    'Senior Specialist',
-    'Consultant',
+export const PHYSICIAN_ASSISTANT_RANKS = [
+    'Physician Assistant',
+    'Senior Physician Assistant',
+    'Principal Physician Assistant',
 ];
 
-// Map category \u2192 rank list for the staff form dropdown
+export const PHARMACIST_RANKS = [
+    'Intern Pharmacist',
+    'Pharmacist',
+    'Senior Pharmacist',
+    'Principal Pharmacist',
+    'Consultant Pharmacist',
+];
+
+export const ANAESTHETIST_RANKS = [
+    'Anaesthetist',
+    'Senior Anaesthetist',
+    'Principal Anaesthetist',
+    'Consultant Anaesthetist',
+];
+
+// AHPC / GHS technical officer-style grades
+export const ALLIED_RANKS = [
+    'Technician',
+    'Senior Technician',
+    'Technical Officer',
+    'Senior Technical Officer',
+    'Principal Technical Officer',
+    'Chief Technical Officer',
+];
+
+// Category → rank list for the staff form
 export const RANKS_BY_CATEGORY = {
-    Nurse: NURSING_RANKS,
-    Midwife: NURSING_RANKS,
-    'Nurse Assistant': NURSING_RANKS,
+    Nurse: NURSE_RANKS,
+    Midwife: MIDWIFE_RANKS,
+    'Nurse Assistant': NURSE_ASSISTANT_RANKS,
+    'Community Health Nurse': COMMUNITY_HEALTH_RANKS,
+    'Mental Health Nurse': NURSE_RANKS,
     Doctor: MEDICAL_RANKS,
-    Pharmacist: ALLIED_RANKS,
+    'Physician Assistant': PHYSICIAN_ASSISTANT_RANKS,
+    Pharmacist: PHARMACIST_RANKS,
     'Lab Technician': ALLIED_RANKS,
     Radiographer: ALLIED_RANKS,
     Physiotherapist: ALLIED_RANKS,
-    Anaesthetist: MEDICAL_RANKS,
+    Anaesthetist: ANAESTHETIST_RANKS,
     Dietitian: ALLIED_RANKS,
     'Biomedical Scientist': ALLIED_RANKS,
     'Health Records Officer': ALLIED_RANKS,
     Other: ALLIED_RANKS,
 };
 
+export const WARD_ROLES = [
+    { value: 'regular', label: 'Regular staff' },
+    { value: 'incharge', label: 'Ward in-charge' },
+    { value: 'assistant', label: 'Assistant in-charge' },
+    { value: 'shift_incharge', label: 'Shift in-charge' },
+    { value: 'unit_manager', label: 'Unit manager' },
+    { value: 'team_leader', label: 'Team leader' },
+    { value: 'preceptor', label: 'Clinical preceptor' },
+    { value: 'intern', label: 'Intern / student' },
+];
+
 // Professional licensing bodies in Ghana
 export const LICENSE_TYPES = [
-    { code: 'PIN', name: 'Professional Identification Number', body: 'Nursing & Midwifery Council', appliesTo: ['Nurse', 'Midwife'] },
+    { code: 'PIN', name: 'Professional Identification Number', body: 'Nursing & Midwifery Council', appliesTo: ['Nurse', 'Midwife', 'Community Health Nurse', 'Mental Health Nurse'] },
     { code: 'AIN', name: 'Auxiliary Identification Number', body: 'Nursing & Midwifery Council', appliesTo: ['Nurse Assistant'] },
     { code: 'MDC', name: 'Medical & Dental Council Registration', body: 'Medical & Dental Council', appliesTo: ['Doctor', 'Anaesthetist'] },
     { code: 'PSGH', name: 'Pharmacy Council Registration', body: 'Pharmacy Council of Ghana', appliesTo: ['Pharmacist'] },
@@ -207,8 +261,6 @@ export const LEAVE_TYPES = [
     'Casual',
     'Unpaid',
 ];
-
-export const WARD_ROLES = ['regular', 'incharge', 'assistant'];
 
 export const WORK_RESTRICTIONS = ['none', 'onlyMorning', 'onlyAfternoon', 'weekdayOnly', 'studyLeave'];
 
