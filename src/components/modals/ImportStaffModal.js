@@ -360,7 +360,7 @@ function HospitalImportModal({
                 {step === 'done' && result && (
                     <div className="py-4">
                         <p className="text-base font-extrabold text-ghs-deep">
-                            {result.imported} {result.imported === 1 ? 'person' : 'people'} on {wardName}
+                            {result.imported} {result.imported === 1 ? 'staff member' : 'staff'} on {wardName}
                             {monthLabel ? ` for ${monthLabel}` : ''}.
                         </p>
                     </div>

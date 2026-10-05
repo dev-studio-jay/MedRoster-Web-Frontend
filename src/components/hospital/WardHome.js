@@ -140,7 +140,7 @@ export default function WardHome({ hospital, ward, department, onChange }) {
                     </p>
                     <h2 className="text-2xl font-extrabold tracking-tight">{ward.name}</h2>
                     <p className="text-synclly-muted font-medium text-sm mt-1">
-                        {wardStaff.length} {wardStaff.length === 1 ? 'person' : 'people'} on this ward.
+                        {wardStaff.length} {wardStaff.length === 1 ? 'staff member' : 'staff'} on this ward.
                     </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -166,7 +166,7 @@ export default function WardHome({ hospital, ward, department, onChange }) {
                                 Import roster
                             </button>
                             <button onClick={() => setShowAdd(true)} className="btn btn-secondary text-xs py-2">
-                                Add person
+                                Add staff
                             </button>
                         </>
                     )}
@@ -202,13 +202,13 @@ export default function WardHome({ hospital, ward, department, onChange }) {
                     <h3 className="text-xl font-extrabold text-synclly-deep">No one on this ward yet</h3>
                     <p className="text-synclly-muted text-sm font-medium max-w-xs mt-2 mb-6">
                         {canWrite
-                            ? 'Import a duty roster or add people, then open the calendar to edit shifts.'
+                            ? 'Import a duty roster or add staff, then open the calendar to edit shifts.'
                             : 'No staff have been assigned to this ward.'}
                     </p>
                     {canWrite && (
                         <div className="flex gap-2">
                             <button onClick={() => setShowImport(true)} className="btn btn-secondary text-xs py-2">Import roster</button>
-                            <button onClick={() => setShowAdd(true)} className="btn btn-primary text-xs py-2">Add person</button>
+                            <button onClick={() => setShowAdd(true)} className="btn btn-primary text-xs py-2">Add staff</button>
                         </div>
                     )}
                 </div>
